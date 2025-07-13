@@ -15,50 +15,50 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   bool _isLoading = true;
   List<QueryDocumentSnapshot> _orders = [];
   String? _errorMessage;
-  
+
   // Filtering and sorting
   String? _filterStatus;
   String _sortBy = 'createdAt';
   bool _sortAscending = false;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  
+
   @override
   void initState() {
     super.initState();
     _loadOrders();
   }
-  
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _loadOrders() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
       Query query = FirebaseFirestore.instance.collection('orders');
-      
+
       // Apply status filter if selected
       if (_filterStatus != null && _filterStatus!.isNotEmpty) {
         query = query.where('status', isEqualTo: _filterStatus);
       }
-      
+
       // Apply sorting
       query = query.orderBy(_sortBy, descending: !_sortAscending);
-      
+
       final snapshot = await query.get();
-      
+
       setState(() {
         _orders = snapshot.docs;
         _isLoading = false;
       });
-      
+
       // Apply search filter in memory (Firestore doesn't support text search)
       if (_searchQuery.isNotEmpty) {
         _applySearchFilter();
@@ -71,46 +71,51 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       });
     }
   }
-  
+
   void _applySearchFilter() {
     if (_searchQuery.isEmpty) {
       _loadOrders();
       return;
     }
-    
+
     final query = _searchQuery.toLowerCase();
     setState(() {
       _orders = _orders.where((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        
+
         // Search in order ID
         if (doc.id.toLowerCase().contains(query)) {
           return true;
         }
-        
+
         // Search in user ID or email
-        if ((data['userId'] as String?)?.toLowerCase().contains(query) ?? false) {
+        if ((data['userId'] as String?)?.toLowerCase().contains(query) ??
+            false) {
           return true;
         }
-        
+
         // Search in delivery address
-        if ((data['deliveryAddress'] as String?)?.toLowerCase().contains(query) ?? false) {
+        if ((data['deliveryAddress'] as String?)
+                ?.toLowerCase()
+                .contains(query) ??
+            false) {
           return true;
         }
-        
+
         // Search in items
         final items = data['items'] as List<dynamic>? ?? [];
         for (var item in items) {
-          if ((item['name'] as String?)?.toLowerCase().contains(query) ?? false) {
+          if ((item['name'] as String?)?.toLowerCase().contains(query) ??
+              false) {
             return true;
           }
         }
-        
+
         return false;
       }).toList();
     });
   }
-  
+
   Future<void> _updateOrderStatus(String orderId, String newStatus) async {
     try {
       await FirebaseFirestore.instance
@@ -120,14 +125,14 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         'status': newStatus,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Order status updated to $newStatus'),
           backgroundColor: Colors.green,
         ),
       );
-      
+
       // Refresh orders list
       _loadOrders();
     } catch (e) {
@@ -140,35 +145,122 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       );
     }
   }
-  
-  void _showOrderDetails(BuildContext context, Map<String, dynamic> orderData, String orderId) {
+
+  void _showOrderDetails(
+      BuildContext context, Map<String, dynamic> orderData, String orderId) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final primaryColor = themeProvider.isDarkMode
         ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     final items = orderData['items'] as List<dynamic>? ?? [];
     final total = orderData['total'] as num? ?? 0.0;
-    final address = orderData['deliveryAddress'] as String? ?? 'No address provided';
-    final paymentMethod = orderData['paymentMethod'] as String? ?? 'Not specified';
+    final address =
+        orderData['deliveryAddress'] as String? ?? 'No address provided';
+    final paymentMethod =
+        orderData['paymentMethod'] as String? ?? 'Not specified';
     final paymentId = orderData['paymentId'] as String?;
     final subtotal = orderData['subtotal'] as num? ?? 0.0;
     final deliveryFee = orderData['deliveryFee'] as num? ?? 0.0;
     final tax = orderData['tax'] as num? ?? 0.0;
     final status = orderData['status'] as String? ?? 'Processing';
     final userId = orderData['userId'] as String? ?? 'Unknown';
-    
+    final phone = orderData['phone'] as String?;
+
     // Format timestamps
     String createdAt = 'Unknown';
     if (orderData['createdAt'] != null) {
       try {
         final timestamp = orderData['createdAt'] as Timestamp;
-        createdAt = DateFormat('MMM dd, yyyy - hh:mm a').format(timestamp.toDate());
+        createdAt =
+            DateFormat('MMM dd, yyyy - hh:mm a').format(timestamp.toDate());
       } catch (e) {
         print('Error formatting timestamp: $e');
       }
     }
-    
+
+    // Widget to show phone number (with async fetch if needed)
+    Widget phoneWidget;
+    if (phone != null && phone.isNotEmpty) {
+      phoneWidget = Row(
+        children: [
+          Icon(Icons.phone,
+              size: 16,
+              color: themeProvider.isDarkMode
+                  ? Colors.grey.shade400
+                  : Colors.grey.shade600),
+          const SizedBox(width: 4),
+          Text(
+            phone,
+            style: TextStyle(
+              fontSize: 14,
+              color: themeProvider.isDarkMode
+                  ? Colors.grey.shade400
+                  : Colors.grey.shade600,
+            ),
+          ),
+        ],
+      );
+    } else {
+      phoneWidget = FutureBuilder<DocumentSnapshot>(
+        future:
+            FirebaseFirestore.instance.collection('users').doc(userId).get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Row(
+              children: [
+                Icon(Icons.phone,
+                    size: 16,
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey.shade400
+                        : Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text('Loading...',
+                    style: TextStyle(fontSize: 14, color: Colors.grey)),
+              ],
+            );
+          }
+          if (snapshot.hasError || !snapshot.hasData) {
+            return Row(
+              children: [
+                Icon(Icons.phone,
+                    size: 16,
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey.shade400
+                        : Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text('Not available',
+                    style: TextStyle(fontSize: 14, color: Colors.red)),
+              ],
+            );
+          }
+          final data = snapshot.data!.data() as Map<String, dynamic>?;
+          final fetchedPhone = data?['phone'] as String?;
+          return Row(
+            children: [
+              Icon(Icons.phone,
+                  size: 16,
+                  color: themeProvider.isDarkMode
+                      ? Colors.grey.shade400
+                      : Colors.grey.shade600),
+              const SizedBox(width: 4),
+              Text(
+                fetchedPhone ?? 'Not available',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: fetchedPhone != null
+                      ? (themeProvider.isDarkMode
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600)
+                      : Colors.red,
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -197,15 +289,18 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(status, themeProvider.isDarkMode),
+                        color:
+                            _getStatusColor(status, themeProvider.isDarkMode),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         status,
                         style: TextStyle(
-                          color: _getStatusTextColor(status, themeProvider.isDarkMode),
+                          color: _getStatusTextColor(
+                              status, themeProvider.isDarkMode),
                           fontWeight: FontWeight.w500,
                           fontSize: 12,
                         ),
@@ -213,9 +308,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 8),
-                
+
                 // Created At and User ID
                 Text(
                   'Created: $createdAt',
@@ -235,13 +330,17 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         : Colors.grey.shade600,
                   ),
                 ),
-                
+                const SizedBox(height: 4),
+                // Phone number
+                phoneWidget,
+
                 const SizedBox(height: 16),
-                
+
                 // Items Section
-                const Text('Items:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Items:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                
+
                 // Items List
                 Container(
                   decoration: BoxDecoration(
@@ -267,11 +366,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Order Summary
-                const Text('Order Summary:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Order Summary:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -283,30 +383,36 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                   ),
                   child: Column(
                     children: [
-                      _buildSummaryRow('Subtotal:', '₹${subtotal.toStringAsFixed(2)}', false),
+                      _buildSummaryRow('Subtotal:',
+                          '₹${subtotal.toStringAsFixed(2)}', false),
                       const SizedBox(height: 4),
                       _buildSummaryRow(
                         'Delivery Fee:',
-                        deliveryFee > 0 ? '₹${deliveryFee.toStringAsFixed(2)}' : 'FREE',
+                        deliveryFee > 0
+                            ? '₹${deliveryFee.toStringAsFixed(2)}'
+                            : 'FREE',
                         false,
                         valueColor: deliveryFee > 0 ? null : Colors.green,
                       ),
                       const SizedBox(height: 4),
-                      _buildSummaryRow('Tax:', '₹${tax.toStringAsFixed(2)}', false),
+                      _buildSummaryRow(
+                          'Tax:', '₹${tax.toStringAsFixed(2)}', false),
                       Divider(
                         color: themeProvider.isDarkMode
                             ? Colors.grey.shade700
                             : Colors.grey.shade300,
                       ),
-                      _buildSummaryRow('Total:', '₹${total.toStringAsFixed(2)}', true),
+                      _buildSummaryRow(
+                          'Total:', '₹${total.toStringAsFixed(2)}', true),
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Delivery Address
-                const Text('Delivery Address:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Delivery Address:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -320,11 +426,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                   ),
                   child: Text(address),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Payment Information
-                const Text('Payment Information:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Payment Information:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -347,11 +454,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Update Status Section
-                const Text('Update Order Status:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Update Order Status:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -376,18 +484,19 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       ),
     );
   }
-  
+
   Widget _buildOrderItemTile(Map<String, dynamic> item, bool isDarkMode) {
     final name = item['name'] as String? ?? 'Unknown item';
     final quantity = item['quantity'] as int? ?? 1;
     final price = item['price'] as num? ?? 0.0;
-    
+
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
           // Item image if available
-          if (item['imageUrl'] != null && item['imageUrl'].toString().isNotEmpty)
+          if (item['imageUrl'] != null &&
+              item['imageUrl'].toString().isNotEmpty)
             Container(
               width: 40,
               height: 40,
@@ -400,7 +509,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 ),
               ),
             ),
-          
+
           // Item details
           Expanded(
             child: Column(
@@ -414,13 +523,15 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                   'Quantity: $quantity × ₹${price.toStringAsFixed(2)}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    color: isDarkMode
+                        ? Colors.grey.shade400
+                        : Colors.grey.shade600,
                   ),
                 ),
               ],
             ),
           ),
-          
+
           // Item total
           Text(
             '₹${(price * quantity).toStringAsFixed(2)}',
@@ -430,8 +541,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       ),
     );
   }
-  
-  Widget _buildSummaryRow(String label, String value, bool isTotal, {Color? valueColor}) {
+
+  Widget _buildSummaryRow(String label, String value, bool isTotal,
+      {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -451,10 +563,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       ],
     );
   }
-  
-  Widget _buildStatusButton(String status, String currentStatus, Color primaryColor) {
+
+  Widget _buildStatusButton(
+      String status, String currentStatus, Color primaryColor) {
     final isSelected = status == currentStatus;
-    
+
     return ElevatedButton(
       onPressed: isSelected
           ? null
@@ -480,18 +593,19 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       ),
     );
   }
-  
+
   void _showStatusConfirmation(BuildContext context, String newStatus) {
     final selectedOrder = _orders.isNotEmpty ? _orders[0] : null;
     if (selectedOrder == null) return;
-    
+
     final orderId = selectedOrder.id;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Update Status'),
-        content: Text('Are you sure you want to update this order to "$newStatus"?'),
+        content:
+            Text('Are you sure you want to update this order to "$newStatus"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -508,22 +622,30 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       ),
     );
   }
-  
+
   Color _getStatusColor(String status, bool isDarkMode) {
     switch (status) {
       case 'Delivered':
-        return isDarkMode ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade100;
+        return isDarkMode
+            ? Colors.green.shade900.withOpacity(0.3)
+            : Colors.green.shade100;
       case 'Processing':
-        return isDarkMode ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade100;
+        return isDarkMode
+            ? Colors.blue.shade900.withOpacity(0.3)
+            : Colors.blue.shade100;
       case 'Shipped':
-        return isDarkMode ? Colors.orange.shade900.withOpacity(0.3) : Colors.orange.shade100;
+        return isDarkMode
+            ? Colors.orange.shade900.withOpacity(0.3)
+            : Colors.orange.shade100;
       case 'Cancelled':
-        return isDarkMode ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade100;
+        return isDarkMode
+            ? Colors.red.shade900.withOpacity(0.3)
+            : Colors.red.shade100;
       default:
         return isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200;
     }
   }
-  
+
   Color _getStatusTextColor(String status, bool isDarkMode) {
     switch (status) {
       case 'Delivered':
@@ -538,7 +660,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         return isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800;
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -548,23 +670,23 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     final backgroundColor = themeProvider.isDarkMode
         ? themeProvider.darkBackgroundColor
         : themeProvider.lightBackgroundColor;
-    
+
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: primaryColor,
         elevation: 0,
         title: Text(
           'Manage Orders',
           style: TextStyle(
-            color: primaryColor,
+            color: Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
-            color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+            color: Colors.black,
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -572,7 +694,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           IconButton(
             icon: Icon(
               Icons.refresh,
-              color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+              color: Colors.black,
             ),
             onPressed: _loadOrders,
           ),
@@ -619,9 +741,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     _applySearchFilter();
                   },
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Filter and sort controls
                 Row(
                   children: [
@@ -640,7 +762,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: primaryColor, width: 2),
+                            borderSide:
+                                BorderSide(color: primaryColor, width: 2),
                           ),
                         ),
                         items: [
@@ -648,7 +771,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             value: null,
                             child: Text('All Statuses'),
                           ),
-                          ...['Processing', 'Shipped', 'Delivered', 'Cancelled'].map((status) {
+                          ...['Processing', 'Shipped', 'Delivered', 'Cancelled']
+                              .map((status) {
                             return DropdownMenuItem<String?>(
                               value: status,
                               child: Text(status),
@@ -663,9 +787,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         },
                       ),
                     ),
-                    
+
                     const SizedBox(width: 16),
-                    
+
                     // Sort dropdown
                     Expanded(
                       child: DropdownButtonFormField<String>(
@@ -681,7 +805,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: primaryColor, width: 2),
+                            borderSide:
+                                BorderSide(color: primaryColor, width: 2),
                           ),
                         ),
                         items: const [
@@ -706,11 +831,13 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         },
                       ),
                     ),
-                    
+
                     // Sort direction button
                     IconButton(
                       icon: Icon(
-                        _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                        _sortAscending
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
                         color: primaryColor,
                       ),
                       onPressed: () {
@@ -729,7 +856,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     ),
                   ],
                 ),
-                
+
                 // Active filters
                 if (_filterStatus != null || _searchQuery.isNotEmpty)
                   Padding(
@@ -751,7 +878,6 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             backgroundColor: primaryColor.withOpacity(0.1),
                             labelStyle: TextStyle(color: primaryColor),
                           ),
-                        
                         if (_searchQuery.isNotEmpty)
                           Chip(
                             label: Text('Search: $_searchQuery'),
@@ -772,7 +898,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               ],
             ),
           ),
-          
+
           // Orders list
           Expanded(
             child: _isLoading
@@ -804,7 +930,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             ),
                             const SizedBox(height: 8),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 32),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 32),
                               child: Text(
                                 _errorMessage ?? 'Please try again later',
                                 textAlign: TextAlign.center,
@@ -823,7 +950,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -844,7 +972,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  _searchQuery.isNotEmpty || _filterStatus != null
+                                  _searchQuery.isNotEmpty ||
+                                          _filterStatus != null
                                       ? 'No orders match your filters'
                                       : 'No orders found',
                                   style: TextStyle(
@@ -856,7 +985,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                if (_searchQuery.isNotEmpty || _filterStatus != null)
+                                if (_searchQuery.isNotEmpty ||
+                                    _filterStatus != null)
                                   ElevatedButton.icon(
                                     onPressed: () {
                                       _searchController.clear();
@@ -871,7 +1001,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryColor,
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 24, vertical: 12),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -885,44 +1016,57 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                             itemCount: _orders.length,
                             itemBuilder: (context, index) {
                               final orderDoc = _orders[index];
-                              final orderData = orderDoc.data() as Map<String, dynamic>;
+                              final orderData =
+                                  orderDoc.data() as Map<String, dynamic>;
                               final orderId = orderDoc.id;
-                              
-                              final orderDate = orderData['createdAt'] as Timestamp?;
-                              final orderStatus = orderData['status'] as String? ?? 'Processing';
-                              final orderItems = orderData['items'] as List<dynamic>? ?? [];
-                              final orderTotal = orderData['total'] as num? ?? 0.0;
-                              final userId = orderData['userId'] as String? ?? 'Unknown';
-                              
+
+                              final orderDate =
+                                  orderData['createdAt'] as Timestamp?;
+                              final orderStatus =
+                                  orderData['status'] as String? ??
+                                      'Processing';
+                              final orderItems =
+                                  orderData['items'] as List<dynamic>? ?? [];
+                              final orderTotal =
+                                  orderData['total'] as num? ?? 0.0;
+                              final userId =
+                                  orderData['userId'] as String? ?? 'Unknown';
+
                               final formattedDate = orderDate != null
-                                  ? DateFormat('MMM dd, yyyy').format(orderDate.toDate())
+                                  ? DateFormat('MMM dd, yyyy')
+                                      .format(orderDate.toDate())
                                   : 'Unknown date';
-                              
+
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: InkWell(
-                                  onTap: () => _showOrderDetails(context, orderData, orderId),
+                                  onTap: () => _showOrderDetails(
+                                      context, orderData, orderId),
                                   borderRadius: BorderRadius.circular(12),
                                   child: Padding(
                                     padding: const EdgeInsets.all(16),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         // Order header
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     'Order #${orderId.substring(0, min(orderId.length, 8)).toUpperCase()}',
                                                     style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       fontSize: 16,
                                                     ),
                                                   ),
@@ -930,9 +1074,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                                   Text(
                                                     formattedDate,
                                                     style: TextStyle(
-                                                      color: themeProvider.isDarkMode
+                                                      color: themeProvider
+                                                              .isDarkMode
                                                           ? Colors.grey.shade400
-                                                          : Colors.grey.shade600,
+                                                          : Colors
+                                                              .grey.shade600,
                                                       fontSize: 14,
                                                     ),
                                                   ),
@@ -940,15 +1086,23 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                               ),
                                             ),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6),
                                               decoration: BoxDecoration(
-                                                color: _getStatusColor(orderStatus, themeProvider.isDarkMode),
-                                                borderRadius: BorderRadius.circular(20),
+                                                color: _getStatusColor(
+                                                    orderStatus,
+                                                    themeProvider.isDarkMode),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
                                               ),
                                               child: Text(
                                                 orderStatus,
                                                 style: TextStyle(
-                                                  color: _getStatusTextColor(orderStatus, themeProvider.isDarkMode),
+                                                  color: _getStatusTextColor(
+                                                      orderStatus,
+                                                      themeProvider.isDarkMode),
                                                   fontWeight: FontWeight.w500,
                                                   fontSize: 12,
                                                 ),
@@ -956,9 +1110,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                             ),
                                           ],
                                         ),
-                                        
+
                                         const SizedBox(height: 12),
-                                        
+
                                         // User ID
                                         Row(
                                           children: [
@@ -975,7 +1129,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                                 'User: $userId',
                                                 style: TextStyle(
                                                   fontSize: 14,
-                                                  color: themeProvider.isDarkMode
+                                                  color: themeProvider
+                                                          .isDarkMode
                                                       ? Colors.grey.shade400
                                                       : Colors.grey.shade600,
                                                 ),
@@ -984,9 +1139,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                             ),
                                           ],
                                         ),
-                                        
+
                                         const SizedBox(height: 8),
-                                        
+
                                         // Items summary
                                         Row(
                                           children: [
@@ -1009,24 +1164,26 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                             ),
                                           ],
                                         ),
-                                        
+
                                         const SizedBox(height: 12),
-                                        
+
                                         // Divider
                                         Divider(
                                           color: themeProvider.isDarkMode
                                               ? Colors.grey.shade700
                                               : Colors.grey.shade300,
                                         ),
-                                        
+
                                         const SizedBox(height: 12),
-                                        
+
                                         // Order total and actions
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 const Text(
                                                   'Total Amount',
@@ -1048,26 +1205,38 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                               children: [
                                                 // View details button
                                                 OutlinedButton.icon(
-                                                  onPressed: () => _showOrderDetails(context, orderData, orderId),
-                                                  icon: Icon(Icons.visibility_outlined, size: 16, color: primaryColor),
+                                                  onPressed: () =>
+                                                      _showOrderDetails(context,
+                                                          orderData, orderId),
+                                                  icon: Icon(
+                                                      Icons.visibility_outlined,
+                                                      size: 16,
+                                                      color: primaryColor),
                                                   label: Text(
                                                     'Details',
-                                                    style: TextStyle(color: primaryColor),
+                                                    style: TextStyle(
+                                                        color: primaryColor),
                                                   ),
-                                                  style: OutlinedButton.styleFrom(
-                                                    side: BorderSide(color: primaryColor),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(8),
+                                                  style:
+                                                      OutlinedButton.styleFrom(
+                                                    side: BorderSide(
+                                                        color: primaryColor),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
                                                     ),
                                                   ),
                                                 ),
-                                                
+
                                                 const SizedBox(width: 8),
-                                                
+
                                                 // Update status button
                                                 PopupMenuButton<String>(
                                                   onSelected: (status) {
-                                                    _showStatusConfirmation(context, status);
+                                                    _showStatusConfirmation(
+                                                        context, status);
                                                   },
                                                   itemBuilder: (context) => [
                                                     'Processing',
@@ -1075,62 +1244,85 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                                     'Delivered',
                                                     'Cancelled',
                                                   ].map((status) {
-                                                    return PopupMenuItem<String>(
+                                                    return PopupMenuItem<
+                                                        String>(
                                                       value: status,
-                                                      enabled: status != orderStatus,
+                                                      enabled:
+                                                          status != orderStatus,
                                                       child: Row(
                                                         children: [
                                                           Container(
                                                             width: 12,
                                                             height: 12,
-                                                            decoration: BoxDecoration(
-                                                              color: _getStatusColor(status, themeProvider.isDarkMode),
-                                                              shape: BoxShape.circle,
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: _getStatusColor(
+                                                                  status,
+                                                                  themeProvider
+                                                                      .isDarkMode),
+                                                              shape: BoxShape
+                                                                  .circle,
                                                             ),
                                                           ),
-                                                          const SizedBox(width: 8),
+                                                          const SizedBox(
+                                                              width: 8),
                                                           Text(status),
-                                                          if (status == orderStatus)
+                                                          if (status ==
+                                                              orderStatus)
                                                             const Spacer()
                                                           else
-                                                            const SizedBox.shrink(),
-                                                          if (status == orderStatus)
-                                                            const Icon(Icons.check, size: 16)
+                                                            const SizedBox
+                                                                .shrink(),
+                                                          if (status ==
+                                                              orderStatus)
+                                                            const Icon(
+                                                                Icons.check,
+                                                                size: 16)
                                                           else
-                                                            const SizedBox.shrink(),
+                                                            const SizedBox
+                                                                .shrink(),
                                                         ],
                                                       ),
                                                     );
                                                   }).toList(),
                                                   child: ElevatedButton.icon(
                                                     onPressed: null,
-                                                    icon: const Icon(Icons.edit_outlined, size: 16),
+                                                    icon: const Icon(
+                                                        Icons.edit_outlined,
+                                                        size: 16),
                                                     label: const Text('Status'),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: primaryColor,
-                                                      foregroundColor: Colors.white,
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(8),
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          primaryColor,
+                                                      foregroundColor:
+                                                          Colors.white,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
                                                       ),
                                                     ),
                                                   ),
-                                            )],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                                )
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                              );
+                            },
+                          ),
           ),
         ],
       ),
     );
   }
-  
+
   int min(int a, int b) {
     return a < b ? a : b;
   }

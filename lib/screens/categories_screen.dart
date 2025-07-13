@@ -14,39 +14,40 @@ class CategoriesScreen extends StatefulWidget {
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
   final categoriesRef = FirebaseFirestore.instance.collection('categories');
-  
+
   @override
   void initState() {
     super.initState();
     _updateCategoryItemCounts();
   }
-  
+
   // Update the build method to remove any padding between app bar and content
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    final backgroundColor = themeProvider.isDarkMode 
-        ? themeProvider.darkBackgroundColor 
+    final backgroundColor = themeProvider.isDarkMode
+        ? themeProvider.darkBackgroundColor
         : themeProvider.lightBackgroundColor;
-    
+
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: primaryColor,
         elevation: 0,
         title: Text(
           'Categories',
           style: TextStyle(
-            color: primaryColor,
+            color: themeProvider.isDarkMode ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.search, color: primaryColor),
+            icon: Icon(Icons.search,
+                color: themeProvider.isDarkMode ? Colors.white : Colors.black),
             onPressed: () {
               showSearch(
                 context: context,
@@ -55,7 +56,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             },
           ),
           IconButton(
-            icon: Icon(Icons.filter_list, color: primaryColor),
+            icon: Icon(Icons.filter_list,
+                color: themeProvider.isDarkMode ? Colors.white : Colors.black),
             onPressed: () {
               _showFilterBottomSheet(context);
             },
@@ -71,7 +73,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         children: [
           // Featured categories horizontal list
           _buildFeaturedCategories(),
-          
+
           // Main categories grid
           Expanded(
             child: _buildCategoriesGrid(),
@@ -80,37 +82,42 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       ),
     );
   }
-  
+
   // Update the _buildFeaturedCategories method to remove the top margin
   Widget _buildFeaturedCategories() {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return Container(
-      height: 120, // Reduced height to remove extra space
-      padding: EdgeInsets.zero, // Remove all padding
-      margin: EdgeInsets.zero, // Remove all margins
+      height: 100, // Further reduce height to minimize gap
+      padding: EdgeInsets.zero,
+      margin: EdgeInsets.zero,
       child: StreamBuilder<QuerySnapshot>(
-        stream: categoriesRef.where('featured', isEqualTo: true).limit(5).snapshots(),
+        stream: categoriesRef
+            .where('featured', isEqualTo: true)
+            .limit(5)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return _buildFeaturedCategoriesSkeleton();
           }
-          
+
           final featuredCategories = snapshot.data?.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            return {
-              'id': doc.id,
-              'name': data['name'],
-              'color': data['color'],
-              'imageUrl': data['imageUrl'] ?? 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=300',
-              'itemCount': data['itemCount'] ?? 0,
-            };
-          }).toList() ?? [];
-          
+                final data = doc.data() as Map<String, dynamic>;
+                return {
+                  'id': doc.id,
+                  'name': data['name'],
+                  'color': data['color'],
+                  'imageUrl': data['imageUrl'] ??
+                      'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=300',
+                  'itemCount': data['itemCount'] ?? 0,
+                };
+              }).toList() ??
+              [];
+
           if (featuredCategories.isEmpty) {
             return const SizedBox.shrink();
           }
-          
+
           return ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -118,7 +125,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             itemBuilder: (context, index) {
               final category = featuredCategories[index];
               final Color categoryColor = Color(int.parse(category['color']));
-              
+
               return GestureDetector(
                 onTap: () {
                   _navigateToProductsScreen(category['id'], category['name']);
@@ -155,7 +162,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                 placeholder: (context, url) => Center(
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(categoryColor),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        categoryColor),
                                   ),
                                 ),
                                 errorWidget: (context, url, error) => Icon(
@@ -205,7 +213,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
                           fontSize: 14,
-                          color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+                          color: themeProvider.isDarkMode
+                              ? Colors.white
+                              : Colors.black87,
                         ),
                         textAlign: TextAlign.center,
                         maxLines: 1,
@@ -216,8 +226,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         '${category['itemCount']} items',
                         style: TextStyle(
                           fontSize: 12,
-                          color: themeProvider.isDarkMode 
-                              ? Colors.grey.shade400 
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey.shade400
                               : Colors.grey.shade600,
                         ),
                         textAlign: TextAlign.center,
@@ -226,18 +236,20 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   ),
                 ),
               );
-          },
-        );
-      },
-    ),
-  );
-}
-  
+            },
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildFeaturedCategoriesSkeleton() {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final baseColor = themeProvider.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!;
-    final highlightColor = themeProvider.isDarkMode ? Colors.grey[600]! : Colors.grey[100]!;
-    
+    final baseColor =
+        themeProvider.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!;
+    final highlightColor =
+        themeProvider.isDarkMode ? Colors.grey[600]! : Colors.grey[100]!;
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       scrollDirection: Axis.horizontal,
@@ -279,10 +291,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       },
     );
   }
-  
+
   Widget _buildCategoriesGrid() {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return StreamBuilder<QuerySnapshot>(
       stream: categoriesRef.snapshots(),
       builder: (context, snapshot) {
@@ -294,33 +306,36 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ),
           );
         }
-        
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildCategoriesGridSkeleton();
         }
-        
+
         final categories = snapshot.data?.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return {
-            'id': doc.id,
-            'name': data['name'],
-            'iconCode': data['iconCode'],
-            'color': data['color'],
-            'imageUrl': data['imageUrl'] ?? 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=300',
-            'itemCount': data['itemCount'] ?? 0,
-          };
-        }).toList() ?? [];
-        
+              final data = doc.data() as Map<String, dynamic>;
+              return {
+                'id': doc.id,
+                'name': data['name'],
+                'iconCode': data['iconCode'],
+                'color': data['color'],
+                'imageUrl': data['imageUrl'] ??
+                    'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=300',
+                'itemCount': data['itemCount'] ?? 0,
+              };
+            }).toList() ??
+            [];
+
         if (categories.isEmpty) {
           return _buildEmptyState();
         }
-        
+
         return RefreshIndicator(
-          color: themeProvider.isDarkMode 
-              ? themeProvider.darkPrimaryColor 
+          color: themeProvider.isDarkMode
+              ? themeProvider.darkPrimaryColor
               : themeProvider.lightPrimaryColor,
           onRefresh: () async {
-            setState(() {});
+            // Instead of setState(() {}), reload categories and update item counts
+            await _updateCategoryItemCounts();
           },
           child: GridView.builder(
             padding: const EdgeInsets.all(16),
@@ -339,12 +354,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       },
     );
   }
-  
+
   // Update the _buildCategoryCard method to show item count more prominently
   Widget _buildCategoryCard(Map<String, dynamic> category) {
     final Color categoryColor = Color(int.parse(category['color']));
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return GestureDetector(
       onTap: () {
         _navigateToProductsScreen(category['id'], category['name']);
@@ -355,8 +370,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: themeProvider.isDarkMode 
-                  ? Colors.black26 
+              color: themeProvider.isDarkMode
+                  ? Colors.black26
                   : Colors.grey.shade200,
               offset: const Offset(0, 4),
               blurRadius: 12,
@@ -368,7 +383,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               child: Stack(
                 children: [
                   Hero(
@@ -379,8 +395,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       width: double.infinity,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Shimmer.fromColors(
-                        baseColor: themeProvider.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-                        highlightColor: themeProvider.isDarkMode ? Colors.grey[600]! : Colors.grey[100]!,
+                        baseColor: themeProvider.isDarkMode
+                            ? Colors.grey[700]!
+                            : Colors.grey[300]!,
+                        highlightColor: themeProvider.isDarkMode
+                            ? Colors.grey[600]!
+                            : Colors.grey[100]!,
                         child: Container(
                           height: 120,
                           color: Colors.white,
@@ -416,7 +436,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     top: 12,
                     right: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -455,7 +476,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     left: 0,
                     right: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -492,8 +514,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         Icon(
                           Icons.inventory_2_outlined,
                           size: 14,
-                          color: themeProvider.isDarkMode 
-                              ? Colors.grey.shade400 
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey.shade400
                               : Colors.grey.shade600,
                         ),
                         const SizedBox(width: 4),
@@ -501,8 +523,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           '${category['itemCount']} products available',
                           style: TextStyle(
                             fontSize: 12,
-                            color: themeProvider.isDarkMode 
-                                ? Colors.grey.shade400 
+                            color: themeProvider.isDarkMode
+                                ? Colors.grey.shade400
                                 : Colors.grey.shade600,
                           ),
                         ),
@@ -510,10 +532,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        _navigateToProductsScreen(category['id'], category['name']);
+                        _navigateToProductsScreen(
+                            category['id'], category['name']);
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: categoryColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
@@ -552,12 +576,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       ),
     );
   }
-  
+
   Widget _buildCategoriesGridSkeleton() {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final baseColor = themeProvider.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!;
-    final highlightColor = themeProvider.isDarkMode ? Colors.grey[600]! : Colors.grey[100]!;
-    
+    final baseColor =
+        themeProvider.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!;
+    final highlightColor =
+        themeProvider.isDarkMode ? Colors.grey[600]! : Colors.grey[100]!;
+
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -581,9 +607,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       },
     );
   }
-  
-  
-  
+
   // Navigate to products screen
   void _navigateToProductsScreen(String categoryId, String categoryName) {
     // Navigate to products screen with category ID and name
@@ -595,12 +619,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ),
       ),
     );
-    
+
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     // For demonstration purposes, show a snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -614,13 +638,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       ),
     );
   }
-  
+
   Widget _buildEmptyState() {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -628,8 +652,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: themeProvider.isDarkMode 
-                  ? themeProvider.darkSurfaceColor 
+              color: themeProvider.isDarkMode
+                  ? themeProvider.darkSurfaceColor
                   : Colors.grey.shade100,
               shape: BoxShape.circle,
               boxShadow: [
@@ -651,8 +675,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             'No categories available',
             style: TextStyle(
               fontSize: 18,
-              color: themeProvider.isDarkMode 
-                  ? Colors.grey.shade300 
+              color: themeProvider.isDarkMode
+                  ? Colors.grey.shade300
                   : Colors.grey.shade600,
               fontWeight: FontWeight.w500,
             ),
@@ -662,8 +686,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             'Check back later for updates',
             style: TextStyle(
               fontSize: 14,
-              color: themeProvider.isDarkMode 
-                  ? Colors.grey.shade400 
+              color: themeProvider.isDarkMode
+                  ? Colors.grey.shade400
                   : Colors.grey.shade500,
             ),
           ),
@@ -688,13 +712,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       ),
     );
   }
-  
+
   void _showFilterBottomSheet(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -708,8 +732,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             boxShadow: [
               BoxShadow(
-                color: themeProvider.isDarkMode 
-                    ? Colors.black26 
+                color: themeProvider.isDarkMode
+                    ? Colors.black26
                     : Colors.grey.shade300,
                 blurRadius: 10,
                 offset: const Offset(0, -5),
@@ -813,13 +837,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       },
     );
   }
-  
+
   Widget _buildFilterChip(String label, bool isSelected) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     return FilterChip(
       label: Text(label),
       selected: isSelected,
@@ -829,29 +853,37 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       selectedColor: primaryColor.withOpacity(0.2),
       checkmarkColor: primaryColor,
       labelStyle: TextStyle(
-        color: isSelected ? primaryColor : themeProvider.isDarkMode ? Colors.white : Colors.black,
+        color: isSelected
+            ? primaryColor
+            : themeProvider.isDarkMode
+                ? Colors.white
+                : Colors.black,
         fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
-          color: isSelected ? primaryColor : themeProvider.isDarkMode 
-              ? Colors.grey.shade700 
-              : Colors.grey.shade300,
+          color: isSelected
+              ? primaryColor
+              : themeProvider.isDarkMode
+                  ? Colors.grey.shade700
+                  : Colors.grey.shade300,
         ),
       ),
       elevation: isSelected ? 1 : 0,
-      shadowColor: isSelected ? primaryColor.withOpacity(0.3) : Colors.transparent,
+      shadowColor:
+          isSelected ? primaryColor.withOpacity(0.3) : Colors.transparent,
     );
   }
-  
+
   // Add a method to fetch category item counts from Firestore
   Future<void> _updateCategoryItemCounts() async {
     try {
       // Get all products
-      final productsSnapshot = await FirebaseFirestore.instance.collection('products').get();
-      
+      final productsSnapshot =
+          await FirebaseFirestore.instance.collection('products').get();
+
       // Count products by category
       Map<String, int> categoryCounts = {};
       for (var doc in productsSnapshot.docs) {
@@ -861,7 +893,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           categoryCounts[categoryId] = (categoryCounts[categoryId] ?? 0) + 1;
         }
       }
-      
+
       // Update each category with its count
       for (var entry in categoryCounts.entries) {
         await FirebaseFirestore.instance
@@ -869,7 +901,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             .doc(entry.key)
             .update({'itemCount': entry.value});
       }
-      
+
       // Refresh the UI
       if (mounted) {
         setState(() {});
@@ -883,17 +915,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 // Search delegate for categories
 class CategorySearchDelegate extends SearchDelegate<String> {
   final Color primaryColor;
-  
+
   CategorySearchDelegate(this.primaryColor);
-  
+
   @override
   ThemeData appBarTheme(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final isDarkMode = themeProvider.isDarkMode;
-    
+
     return Theme.of(context).copyWith(
       appBarTheme: AppBarTheme(
-        backgroundColor: isDarkMode ? themeProvider.darkCardColor : Colors.white,
+        backgroundColor:
+            isDarkMode ? themeProvider.darkCardColor : Colors.white,
         iconTheme: IconThemeData(color: primaryColor),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -909,7 +942,7 @@ class CategorySearchDelegate extends SearchDelegate<String> {
       ),
     );
   }
-  
+
   @override
   List<Widget> buildActions(BuildContext context) {
     return [
@@ -935,7 +968,7 @@ class CategorySearchDelegate extends SearchDelegate<String> {
   @override
   Widget buildResults(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return FutureBuilder<QuerySnapshot>(
       future: FirebaseFirestore.instance
           .collection('categories')
@@ -950,17 +983,19 @@ class CategorySearchDelegate extends SearchDelegate<String> {
             ),
           );
         }
-        
+
         final results = snapshot.data?.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return {
-            'id': doc.id,
-            'name': data['name'],
-            'color': data['color'],
-            'imageUrl': data['imageUrl'] ?? 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=300',
-          };
-        }).toList() ?? [];
-        
+              final data = doc.data() as Map<String, dynamic>;
+              return {
+                'id': doc.id,
+                'name': data['name'],
+                'color': data['color'],
+                'imageUrl': data['imageUrl'] ??
+                    'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=300',
+              };
+            }).toList() ??
+            [];
+
         if (results.isEmpty) {
           return Center(
             child: Column(
@@ -969,8 +1004,8 @@ class CategorySearchDelegate extends SearchDelegate<String> {
                 Icon(
                   Icons.search_off,
                   size: 64,
-                  color: themeProvider.isDarkMode 
-                      ? Colors.grey.shade600 
+                  color: themeProvider.isDarkMode
+                      ? Colors.grey.shade600
                       : Colors.grey.shade400,
                 ),
                 const SizedBox(height: 16),
@@ -978,8 +1013,8 @@ class CategorySearchDelegate extends SearchDelegate<String> {
                   'No categories found',
                   style: TextStyle(
                     fontSize: 18,
-                    color: themeProvider.isDarkMode 
-                        ? Colors.grey.shade400 
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey.shade400
                         : Colors.grey.shade600,
                   ),
                 ),
@@ -987,13 +1022,13 @@ class CategorySearchDelegate extends SearchDelegate<String> {
             ),
           );
         }
-        
+
         return ListView.builder(
           itemCount: results.length,
           itemBuilder: (context, index) {
             final category = results[index];
             final Color categoryColor = Color(int.parse(category['color']));
-            
+
             return ListTile(
               leading: Container(
                 width: 50,
@@ -1018,13 +1053,16 @@ class CategorySearchDelegate extends SearchDelegate<String> {
                 category['name'],
                 style: TextStyle(
                   fontWeight: FontWeight.w500,
-                  color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+                  color:
+                      themeProvider.isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
               trailing: Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
-                color: themeProvider.isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                color: themeProvider.isDarkMode
+                    ? Colors.grey.shade400
+                    : Colors.grey.shade600,
               ),
               onTap: () {
                 close(context, category['id']);
@@ -1055,23 +1093,23 @@ class CategorySearchDelegate extends SearchDelegate<String> {
 class ProductsScreen extends StatelessWidget {
   final String categoryId;
   final String categoryName;
-  
+
   const ProductsScreen({
     Key? key,
     required this.categoryId,
     required this.categoryName,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     return Scaffold(
-      backgroundColor: themeProvider.isDarkMode 
-          ? themeProvider.darkBackgroundColor 
+      backgroundColor: themeProvider.isDarkMode
+          ? themeProvider.darkBackgroundColor
           : themeProvider.lightBackgroundColor,
       appBar: AppBar(
         title: Text(categoryName),
@@ -1090,7 +1128,7 @@ class ProductsScreen extends StatelessWidget {
               child: CircularProgressIndicator(),
             );
           }
-          
+
           if (snapshot.hasError) {
             return Center(
               child: Text(
@@ -1099,20 +1137,23 @@ class ProductsScreen extends StatelessWidget {
               ),
             );
           }
-          
+
           final products = snapshot.data?.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            return {
-              'id': doc.id,
-              'name': data['name'] ?? 'Unnamed Product',
-              'price': (data['price'] ?? 0).toDouble(),
-              'originalPrice': (data['originalPrice'] ?? data['price'] ?? 0).toDouble(),
-              'discountPercentage': (data['discountPercentage'] ?? 0).toDouble(),
-              'unit': data['unit'] ?? 'item',
-              'imageUrl': data['imageUrl'],
-            };
-          }).toList() ?? [];
-          
+                final data = doc.data() as Map<String, dynamic>;
+                return {
+                  'id': doc.id,
+                  'name': data['name'] ?? 'Unnamed Product',
+                  'price': (data['price'] ?? 0).toDouble(),
+                  'originalPrice':
+                      (data['originalPrice'] ?? data['price'] ?? 0).toDouble(),
+                  'discountPercentage':
+                      (data['discountPercentage'] ?? 0).toDouble(),
+                  'unit': data['unit'] ?? 'item',
+                  'imageUrl': data['imageUrl'],
+                };
+              }).toList() ??
+              [];
+
           if (products.isEmpty) {
             return Center(
               child: Column(
@@ -1121,8 +1162,8 @@ class ProductsScreen extends StatelessWidget {
                   Icon(
                     Icons.shopping_bag_outlined,
                     size: 64,
-                    color: themeProvider.isDarkMode 
-                        ? Colors.grey.shade600 
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey.shade600
                         : Colors.grey.shade400,
                   ),
                   const SizedBox(height: 16),
@@ -1130,8 +1171,8 @@ class ProductsScreen extends StatelessWidget {
                     'No products available in this category',
                     style: TextStyle(
                       fontSize: 18,
-                      color: themeProvider.isDarkMode 
-                          ? Colors.grey.shade400 
+                      color: themeProvider.isDarkMode
+                          ? Colors.grey.shade400
                           : Colors.grey.shade600,
                     ),
                   ),
@@ -1143,7 +1184,8 @@ class ProductsScreen extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1154,7 +1196,7 @@ class ProductsScreen extends StatelessWidget {
               ),
             );
           }
-          
+
           return GridView.builder(
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -1173,21 +1215,21 @@ class ProductsScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildProductCard(BuildContext context, Map<String, dynamic> product) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: themeProvider.isDarkMode 
-                ? Colors.black26 
+            color: themeProvider.isDarkMode
+                ? Colors.black26
                 : Colors.grey.shade200,
             offset: const Offset(0, 4),
             blurRadius: 12,
@@ -1209,8 +1251,8 @@ class ProductsScreen extends StatelessWidget {
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
                       height: 120,
-                      color: themeProvider.isDarkMode 
-                          ? Colors.grey.shade800 
+                      color: themeProvider.isDarkMode
+                          ? Colors.grey.shade800
                           : Colors.grey.shade100,
                       child: const Center(
                         child: CircularProgressIndicator(),
@@ -1218,31 +1260,31 @@ class ProductsScreen extends StatelessWidget {
                     ),
                     errorWidget: (context, url, error) => Container(
                       height: 120,
-                      color: themeProvider.isDarkMode 
-                          ? Colors.grey.shade800 
+                      color: themeProvider.isDarkMode
+                          ? Colors.grey.shade800
                           : Colors.grey.shade100,
                       child: Icon(
                         Icons.image_not_supported,
-                        color: themeProvider.isDarkMode 
-                            ? Colors.grey.shade600 
+                        color: themeProvider.isDarkMode
+                            ? Colors.grey.shade600
                             : Colors.grey.shade400,
                       ),
                     ),
                   )
                 : Container(
                     height: 120,
-                    color: themeProvider.isDarkMode 
-                        ? Colors.grey.shade800 
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey.shade800
                         : Colors.grey.shade100,
                     child: Icon(
                       Icons.image_not_supported,
-                      color: themeProvider.isDarkMode 
-                          ? Colors.grey.shade600 
+                      color: themeProvider.isDarkMode
+                          ? Colors.grey.shade600
                           : Colors.grey.shade400,
                     ),
                   ),
           ),
-          
+
           // Product details
           Expanded(
             child: Padding(
@@ -1255,7 +1297,9 @@ class ProductsScreen extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+                      color: themeProvider.isDarkMode
+                          ? Colors.white
+                          : Colors.black87,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1264,8 +1308,8 @@ class ProductsScreen extends StatelessWidget {
                   Text(
                     product['unit'],
                     style: TextStyle(
-                      color: themeProvider.isDarkMode 
-                          ? Colors.grey.shade400 
+                      color: themeProvider.isDarkMode
+                          ? Colors.grey.shade400
                           : Colors.grey.shade600,
                       fontSize: 12,
                     ),
@@ -1278,7 +1322,9 @@ class ProductsScreen extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+                          color: themeProvider.isDarkMode
+                              ? Colors.white
+                              : Colors.black87,
                         ),
                       ),
                       if (product['discountPercentage'] > 0) ...[
@@ -1287,8 +1333,8 @@ class ProductsScreen extends StatelessWidget {
                           '₹${product['originalPrice'].toStringAsFixed(2)}',
                           style: TextStyle(
                             decoration: TextDecoration.lineThrough,
-                            color: themeProvider.isDarkMode 
-                                ? Colors.grey.shade500 
+                            color: themeProvider.isDarkMode
+                                ? Colors.grey.shade500
                                 : Colors.grey,
                             fontSize: 12,
                           ),
@@ -1299,18 +1345,19 @@ class ProductsScreen extends StatelessWidget {
                   if (product['discountPercentage'] > 0)
                     Container(
                       margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: themeProvider.isDarkMode 
-                            ? Colors.red.shade900.withOpacity(0.3) 
+                        color: themeProvider.isDarkMode
+                            ? Colors.red.shade900.withOpacity(0.3)
                             : Colors.red.shade100,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         '${product['discountPercentage'].toStringAsFixed(0)}% OFF',
                         style: TextStyle(
-                          color: themeProvider.isDarkMode 
-                              ? Colors.red.shade300 
+                          color: themeProvider.isDarkMode
+                              ? Colors.red.shade300
                               : Colors.red.shade700,
                           fontSize: 10,
                           fontWeight: FontWeight.w500,
@@ -1321,14 +1368,15 @@ class ProductsScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Add to cart button
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: primaryColor.withOpacity(0.1),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(16)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

@@ -52,22 +52,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _loadAddress() async {
     try {
-      final addressProvider = Provider.of<AddressProvider>(context, listen: false);
-      
+      final addressProvider =
+          Provider.of<AddressProvider>(context, listen: false);
+
       // First check if we have a passed address from the widget
       if (widget.address != null && widget.address!.isNotEmpty) {
         setState(() {
           _deliveryAddress = widget.address!;
         });
-        
+
         // Also add this to the address provider if it doesn't exist
         await addressProvider.convertAndAddAddress(
           _deliveryAddress,
           setAsDefault: true,
         );
-        
+
         print('Address passed from widget: $_deliveryAddress');
-      } 
+      }
       // Otherwise use the selected address from the provider
       else if (addressProvider.selectedAddress != null) {
         setState(() {
@@ -78,7 +79,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // If no address is available in the provider, try to import legacy address
       else {
         await addressProvider.importLegacyAddress();
-        
+
         if (addressProvider.selectedAddress != null) {
           setState(() {
             _deliveryAddress = addressProvider.selectedAddress!.fullAddress;
@@ -104,7 +105,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
         }
       }
-      
+
       print('Final loaded address: $_deliveryAddress');
     } catch (e) {
       print('Error in _loadAddress: $e');
@@ -125,7 +126,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         print('Location services are disabled');
         return false;
       }
-      
+
       // Check permission
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -135,61 +136,62 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           return false;
         }
       }
-      
+
       if (permission == LocationPermission.deniedForever) {
         print('Location permission permanently denied');
         return false;
       }
-      
+
       // Get current position
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 15),
       );
-      
+
       // Get address from coordinates
       List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       );
-      
+
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
-        
+
         // Create a more detailed address with null checks
         List<String> addressComponents = [];
-        
+
         if (place.street != null && place.street!.isNotEmpty) {
           addressComponents.add(place.street!);
         }
-        
+
         if (place.subLocality != null && place.subLocality!.isNotEmpty) {
           addressComponents.add(place.subLocality!);
         }
-        
+
         if (place.locality != null && place.locality!.isNotEmpty) {
           addressComponents.add(place.locality!);
         }
-        
-        if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
+
+        if (place.administrativeArea != null &&
+            place.administrativeArea!.isNotEmpty) {
           addressComponents.add(place.administrativeArea!);
         }
-        
+
         if (place.postalCode != null && place.postalCode!.isNotEmpty) {
           addressComponents.add(place.postalCode!);
         }
-        
+
         String currentAddress = addressComponents.join(', ');
-        
+
         // Update state
         setState(() {
           _deliveryAddress = currentAddress;
         });
-        
+
         // Save to preferences for future use
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(ADDRESS_PREF_KEY, currentAddress);
-        
+
         print('Successfully fetched and set current location: $currentAddress');
         return true;
       } else {
@@ -222,13 +224,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() {
       _isProcessing = false;
     });
-    
+
     // Create order in Firestore
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
     final subtotal = cartProvider.calculateSubtotal(_cartItems);
-    final deliveryFee = cartProvider.calculateDeliveryFee(subtotal);
-    final tax = cartProvider.calculateTax(subtotal);
-    
+    final deliveryFee = cartProvider.calculateDeliveryFee(_cartItems);
+    final tax = cartProvider.calculateTax(_cartItems);
+
     final user = _auth.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -239,7 +241,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       return;
     }
-    
+
+    // Fetch phone number from Firestore
+    String? phoneNumber;
+    try {
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      phoneNumber = userDoc.data()?['phone'] as String?;
+    } catch (e) {
+      phoneNumber = null;
+    }
+
     // Convert items to a format suitable for Firestore
     final items = _cartItems.map((item) {
       return {
@@ -250,11 +261,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'imageUrl': item.imageUrl,
       };
     }).toList();
-    
+
     // Create order document
     try {
       final orderRef = await _firestore.collection('orders').add({
         'userId': user.uid,
+        'phone': phoneNumber,
         'items': items,
         'subtotal': subtotal,
         'deliveryFee': deliveryFee,
@@ -266,10 +278,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'status': 'Processing',
         'createdAt': FieldValue.serverTimestamp(),
       });
-      
+
       // Clear the cart
       cartProvider.clearCart();
-      
+
       // Navigate to order confirmation
       if (mounted) {
         Navigator.push(
@@ -298,7 +310,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _handlePaymentError(PaymentFailureResponse response) {
     setState(() {
       _isProcessing = false;
-      
+
       // Provide more specific error messages based on error code
       if (response.code != null) {
         switch (response.code) {
@@ -315,13 +327,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             _paymentError = "Payment gateway error";
             break;
           default:
-            _paymentError = response.message ?? "An error occurred during payment";
+            _paymentError =
+                response.message ?? "An error occurred during payment";
         }
       } else {
         _paymentError = response.message ?? "An error occurred during payment";
       }
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Payment failed: ${_paymentError}'),
@@ -370,7 +383,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
     final user = _auth.currentUser;
-    
+
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -386,27 +399,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       setState(() {
         _isProcessing = true;
       });
-      
+
       try {
         // Get theme color for Razorpay theme
-        final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+        final themeProvider =
+            Provider.of<ThemeProvider>(context, listen: false);
         final primaryColor = themeProvider.isDarkMode
             ? themeProvider.darkPrimaryColor
             : themeProvider.lightPrimaryColor;
-        
+
         // Convert Color to hex string
-        final colorHex = '#${primaryColor.value.toRadixString(16).substring(2)}';
-        
+        final colorHex =
+            '#${primaryColor.value.toRadixString(16).substring(2)}';
+
         // Create a description with item details
         String description = 'Payment for ';
         if (_cartItems.length == 1) {
           description += '${_cartItems[0].name}';
         } else if (_cartItems.length > 1) {
-          description += '${_cartItems[0].name} and ${_cartItems.length - 1} more item(s)';
+          description +=
+              '${_cartItems[0].name} and ${_cartItems.length - 1} more item(s)';
         } else {
           description += 'Your order';
         }
-        
+
         // Simplified options for better compatibility
         var options = {
           'key': 'rzp_test_qix9HDGt0k0hgJ',
@@ -430,7 +446,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _isProcessing = false;
           _paymentError = "Failed to initialize payment: ${e.toString()}";
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Payment initialization failed: ${e.toString()}'),
@@ -446,9 +462,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       // Calculate order details
       final subtotal = cartProvider.calculateSubtotal(_cartItems);
-      final deliveryFee = cartProvider.calculateDeliveryFee(subtotal);
-      final tax = cartProvider.calculateTax(subtotal);
-      
+      final deliveryFee = cartProvider.calculateDeliveryFee(_cartItems);
+      final tax = cartProvider.calculateTax(_cartItems);
+
       // Convert items to a format suitable for Firestore
       final items = _cartItems.map((item) {
         return {
@@ -459,11 +475,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'imageUrl': item.imageUrl,
         };
       }).toList();
-      
+
       try {
+        // Fetch phone number from Firestore
+        String? phoneNumber;
+        try {
+          final userDoc =
+              await _firestore.collection('users').doc(user.uid).get();
+          phoneNumber = userDoc.data()?['phone'] as String?;
+        } catch (e) {
+          phoneNumber = null;
+        }
         // Create order document
         final orderRef = await _firestore.collection('orders').add({
           'userId': user.uid,
+          'phone': phoneNumber,
           'items': items,
           'subtotal': subtotal,
           'deliveryFee': deliveryFee,
@@ -474,10 +500,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'status': 'Processing',
           'createdAt': FieldValue.serverTimestamp(),
         });
-        
+
         // Clear the cart
         cartProvider.clearCart();
-        
+
         // Simulate payment processing
         await Future.delayed(const Duration(seconds: 2));
 
@@ -513,24 +539,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
- void _showAddressDialog() {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (context) {
-      return AddressSelectionDialog(
-        onAddressSelect: (address) {  // Changed from onAddressSelected to onAddressSelect
-          setState(() {
-            _deliveryAddress = address.fullAddress;
-          });
-        },
-      );
-    },
-  );
-}
+  void _showAddressDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return AddressSelectionDialog(
+          onAddressSelect: (address) {
+            // Changed from onAddressSelected to onAddressSelect
+            setState(() {
+              _deliveryAddress = address.fullAddress;
+            });
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -557,9 +584,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
-            color: themeProvider.isDarkMode
-                ? Colors.white
-                : Colors.grey.shade800,
+            color:
+                themeProvider.isDarkMode ? Colors.white : Colors.grey.shade800,
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -641,7 +667,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            selectedAddress?.label.toLowerCase() == 'work' 
+            selectedAddress?.label.toLowerCase() == 'work'
                 ? Icons.work
                 : selectedAddress?.label.toLowerCase() == 'other'
                     ? Icons.location_on
@@ -668,7 +694,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     if (selectedAddress?.isDefault == true) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: primaryColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4),
@@ -687,7 +714,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  displayAddress.isEmpty ? 'No delivery address selected' : displayAddress,
+                  displayAddress.isEmpty
+                      ? 'No delivery address selected'
+                      : displayAddress,
                   style: TextStyle(
                     color: themeProvider.isDarkMode
                         ? Colors.white
@@ -841,10 +870,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildPaymentIcon('Cards', Icons.credit_card, Colors.blue),
-                        _buildPaymentIcon('UPI', Icons.account_balance, Colors.green),
-                        _buildPaymentIcon('Wallets', Icons.account_balance_wallet, Colors.orange),
-                        _buildPaymentIcon('NetBanking', Icons.account_balance, Colors.purple),
+                        _buildPaymentIcon(
+                            'Cards', Icons.credit_card, Colors.blue),
+                        _buildPaymentIcon(
+                            'UPI', Icons.account_balance, Colors.green),
+                        _buildPaymentIcon('Wallets',
+                            Icons.account_balance_wallet, Colors.orange),
+                        _buildPaymentIcon(
+                            'NetBanking', Icons.account_balance, Colors.purple),
                       ],
                     ),
                     if (_paymentError != null) ...[
@@ -1073,9 +1106,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: themeProvider.isDarkMode
-                      ? Colors.white
-                      : Colors.black87,
+                  color:
+                      themeProvider.isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
               Text(
@@ -1083,9 +1115,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: themeProvider.isDarkMode
-                      ? Colors.white
-                      : Colors.black87,
+                  color:
+                      themeProvider.isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
             ],
@@ -1164,7 +1195,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             Expanded(
               child: ElevatedButton(
-                onPressed: _deliveryAddress.isEmpty || _isProcessing ? null : _processPayment,
+                onPressed: _deliveryAddress.isEmpty || _isProcessing
+                    ? null
+                    : _processPayment,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,

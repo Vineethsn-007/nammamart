@@ -22,17 +22,18 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AuthService _authService = AuthService();
-    
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
-        ChangeNotifierProvider(create: (_) => AddressProvider()), // Add the AddressProvider
+        ChangeNotifierProvider(
+            create: (_) => AddressProvider()), // Add the AddressProvider
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
           return MaterialApp(
-            title: 'NammaStore',
+            title: 'NammaMart',
             debugShowCheckedModeBanner: false,
             theme: themeProvider.getTheme(),
             home: StreamBuilder<User?>(
@@ -40,19 +41,21 @@ class MyApp extends StatelessWidget {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.active) {
                   final User? user = snapshot.data;
-                  
+
                   // Wrap the main app with NetworkAwareWidget
                   return NetworkAwareWidget(
-                    onlineChild: user == null ? const LoginScreen() : const HomeScreen(),
+                    onlineChild:
+                        user == null ? const LoginScreen() : const HomeScreen(),
                   );
                 }
-                
+
                 // Loading state
                 return Scaffold(
                   key: const Key('loading_scaffold'),
                   body: Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(themeProvider.lightPrimaryColor),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                          themeProvider.lightPrimaryColor),
                     ),
                   ),
                 );

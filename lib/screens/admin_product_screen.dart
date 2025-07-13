@@ -7,6 +7,8 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:namma_store/screens/admin_orders_screen.dart';
 import '../models/grocery_item.dart';
+import '../providers/theme_provider.dart';
+import 'package:provider/provider.dart';
 
 class AdminProductScreen extends StatefulWidget {
   const AdminProductScreen({Key? key}) : super(key: key);
@@ -30,7 +32,6 @@ class _AdminProductScreenState extends State<AdminProductScreen>
   final _unitController = TextEditingController();
   final _imageUrlController = TextEditingController();
   final _searchController = TextEditingController();
-  
 
   // Category form controllers
   final _categoryNameController = TextEditingController();
@@ -69,18 +70,18 @@ class _AdminProductScreenState extends State<AdminProductScreen>
   late TabController _tabController;
 
   // Colors
-  final Color primaryColor = const Color(0xFF1E88E5);
-  final Color backgroundColor = const Color(0xFFF5F7FA);
+  final Color primaryColor = const Color(0xFFFFC107); // Yellow
+  final Color backgroundColor = Colors.white;
   final Color errorColor = const Color(0xFFE53935);
   final Color successColor = const Color(0xFF43A047);
 
   // Settings form controllers
   final _deliveryFeeController = TextEditingController();
   final _taxRateController = TextEditingController();
-  
+
   // Settings form key
   final _settingsFormKey = GlobalKey<FormState>();
-  
+
   // Default values
   double _deliveryFee = 40.0;
   double _taxRate = 5.0;
@@ -120,17 +121,16 @@ class _AdminProductScreenState extends State<AdminProductScreen>
     try {
       final snapshot = await categoriesRef.get();
       setState(() {
-        _categories =
-            snapshot.docs.map((doc) {
-              final data = doc.data();
-              return {
-                'id': doc.id,
-                'name': data['name'] ?? 'Unnamed Category',
-                'color': data['color'] ?? '0xFF1E88E5',
-                'iconCode': data['iconCode'] ?? 0xe25e,
-                'imageUrl': data['imageUrl'] ?? '',
-              };
-            }).toList();
+        _categories = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'name': data['name'] ?? 'Unnamed Category',
+            'color': data['color'] ?? '0xFF1E88E5',
+            'iconCode': data['iconCode'] ?? 0xe25e,
+            'imageUrl': data['imageUrl'] ?? '',
+          };
+        }).toList();
 
         // Sort categories alphabetically
         _categories.sort((a, b) => a['name'].compareTo(b['name']));
@@ -193,22 +193,20 @@ class _AdminProductScreenState extends State<AdminProductScreen>
     // Apply search filter
     if (_searchController.text.isNotEmpty) {
       final searchTerm = _searchController.text.toLowerCase();
-      filtered =
-          filtered
-              .where(
-                (product) =>
-                    product.name.toLowerCase().contains(searchTerm) ||
-                    product.unit.toLowerCase().contains(searchTerm),
-              )
-              .toList();
+      filtered = filtered
+          .where(
+            (product) =>
+                product.name.toLowerCase().contains(searchTerm) ||
+                product.unit.toLowerCase().contains(searchTerm),
+          )
+          .toList();
     }
 
     // Apply category filter
     if (_filterCategory != null) {
-      filtered =
-          filtered
-              .where((product) => product.categoryId == _filterCategory)
-              .toList();
+      filtered = filtered
+          .where((product) => product.categoryId == _filterCategory)
+          .toList();
     }
 
     // Apply sorting
@@ -293,7 +291,8 @@ class _AdminProductScreenState extends State<AdminProductScreen>
   void _editCategory(Map<String, dynamic> category) {
     setState(() {
       _categoryNameController.text = category['name'];
-      _categoryIconCodeController.text = category['iconCode']?.toString() ?? '0xe25e';
+      _categoryIconCodeController.text =
+          category['iconCode']?.toString() ?? '0xe25e';
       _categoryColorController.text = category['color'] ?? '0xFF1E88E5';
       _categoryImageUrlController.text = category['imageUrl'] ?? '';
       _isEditingCategory = true;
@@ -304,32 +303,30 @@ class _AdminProductScreenState extends State<AdminProductScreen>
 
   // Delete product with confirmation
   Future<void> _deleteProduct(String productId) async {
-    final confirmed =
-        await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
           context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Delete Product'),
-                content: const Text(
-                  'Are you sure you want to delete this product? This action cannot be undone.',
+          builder: (context) => AlertDialog(
+            title: const Text('Delete Product'),
+            content: const Text(
+              'Are you sure you want to delete this product? This action cannot be undone.',
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey.shade700),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.grey.shade700),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: Text('Delete', style: TextStyle(color: errorColor)),
-                  ),
-                ],
               ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Delete', style: TextStyle(color: errorColor)),
+              ),
+            ],
+          ),
         ) ??
         false;
 
@@ -382,37 +379,42 @@ class _AdminProductScreenState extends State<AdminProductScreen>
   // Delete category with confirmation
   Future<void> _deleteCategory(String categoryId) async {
     // Check if category has products
-    final productsSnapshot = await productsRef.where('categoryId', isEqualTo: categoryId).limit(1).get();
+    final productsSnapshot = await productsRef
+        .where('categoryId', isEqualTo: categoryId)
+        .limit(1)
+        .get();
     if (productsSnapshot.docs.isNotEmpty) {
-      _showErrorSnackBar('Cannot delete category with products. Remove or reassign products first.');
+      _showErrorSnackBar(
+          'Cannot delete category with products. Remove or reassign products first.');
       return;
     }
 
     final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Category'),
-        content: const Text(
-          'Are you sure you want to delete this category? This action cannot be undone.',
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: Colors.grey.shade700),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete Category'),
+            content: const Text(
+              'Are you sure you want to delete this category? This action cannot be undone.',
             ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Delete', style: TextStyle(color: errorColor)),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: TextStyle(color: errorColor)),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
 
     if (!confirmed) return;
 
@@ -434,7 +436,9 @@ class _AdminProductScreenState extends State<AdminProductScreen>
         try {
           // Extract the file name from the URL
           final fileName = imageUrl.split('/').last.split('?').first;
-          await FirebaseStorage.instance.ref('category_images/$fileName').delete();
+          await FirebaseStorage.instance
+              .ref('category_images/$fileName')
+              .delete();
         } catch (e) {
           // Ignore errors when deleting images
           print('Error deleting image: $e');
@@ -461,416 +465,437 @@ class _AdminProductScreenState extends State<AdminProductScreen>
   // Save product (create or update)
   // Fix for the _saveProduct method
   Future<void> _saveProduct() async {
-  // Validate form
-  if (!_formKey.currentState!.validate()) {
-    return;
-  }
-
-  setState(() {
-    _isLoading = true;
-  });
-
-  try {
-    // Parse form values
-    final name = _nameController.text.trim();
-    final price = double.parse(_priceController.text.trim());
-    final originalPrice = _originalPriceController.text.trim().isNotEmpty
-        ? double.parse(_originalPriceController.text.trim())
-        : price;
-    final discountPercentage = _discountPercentageController.text.trim().isNotEmpty
-        ? double.parse(_discountPercentageController.text.trim())
-        : 0.0;
-    final unit = _unitController.text.trim();
-    String? imageUrl = _imageUrlController.text.trim();
-
-    // Upload image if selected
-    if (_imageFile != null) {
-      setState(() {
-        _isUploading = true;
-      });
-
-      try {
-        // Create a unique filename
-        final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final ref = storageRef.child('product_images/$fileName');
-
-        // Upload the file to Firebase Storage
-        final uploadTask = ref.putFile(_imageFile!);
-        final TaskSnapshot snapshot = await uploadTask;
-
-        // Get the download URL
-        imageUrl = await snapshot.ref.getDownloadURL();
-
-        setState(() {
-          _imageUrlController.text = imageUrl!;
-          _isUploading = false;
-        });
-      } catch (e) {
-        setState(() {
-          _isUploading = false;
-        });
-        _showErrorSnackBar('Error uploading image: $e');
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
+    // Validate form
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
 
-    // Prepare product data
-    final productData = {
-      'name': name,
-      'price': price,
-      'originalPrice': originalPrice,
-      'discountPercentage': discountPercentage,
-      'unit': unit,
-      'imageUrl': imageUrl,
-      'categoryId': _selectedCategoryId,
-      'isPopular': _isPopular,
-      'isSpecialOffer': _isSpecialOffer,
-      'iconCode': 0xe25e, // Default icon code
-      'updatedAt': FieldValue.serverTimestamp(),
-      'nameSearch': name.toLowerCase(), // For case-insensitive search
-    };
-
-    if (_isEditing && _currentProductId != null) {
-      // Update existing product
-      await productsRef.doc(_currentProductId).update(productData);
-      _showSuccessSnackBar('Product updated successfully');
-    } else {
-      // Create new product
-      productData['createdAt'] = FieldValue.serverTimestamp();
-      await productsRef.add(productData);
-      _showSuccessSnackBar('Product added successfully');
-    }
-
-    // Reset form and refresh product list
-    _resetForm();
-    await _loadProducts();
-
-    // Switch to product list tab
-    _tabController.animateTo(1);
-  } catch (e) {
-    _showErrorSnackBar('Error saving product: $e');
-  } finally {
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
     });
+
+    try {
+      // Parse form values
+      final name = _nameController.text.trim();
+      final price = double.parse(_priceController.text.trim());
+      final originalPrice = _originalPriceController.text.trim().isNotEmpty
+          ? double.parse(_originalPriceController.text.trim())
+          : price;
+      final discountPercentage =
+          _discountPercentageController.text.trim().isNotEmpty
+              ? double.parse(_discountPercentageController.text.trim())
+              : 0.0;
+      final unit = _unitController.text.trim();
+      String? imageUrl = _imageUrlController.text.trim();
+
+      // Upload image if selected
+      if (_imageFile != null) {
+        setState(() {
+          _isUploading = true;
+        });
+
+        try {
+          // Create a unique filename
+          final fileName =
+              'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final ref = storageRef.child('product_images/$fileName');
+
+          // Upload the file to Firebase Storage
+          final uploadTask = ref.putFile(_imageFile!);
+          final TaskSnapshot snapshot = await uploadTask;
+
+          // Get the download URL
+          imageUrl = await snapshot.ref.getDownloadURL();
+
+          setState(() {
+            _imageUrlController.text = imageUrl!;
+            _isUploading = false;
+          });
+        } catch (e) {
+          setState(() {
+            _isUploading = false;
+          });
+          _showErrorSnackBar('Error uploading image: $e');
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
+      // Prepare product data
+      final productData = {
+        'name': name,
+        'price': price,
+        'originalPrice': originalPrice,
+        'discountPercentage': discountPercentage,
+        'unit': unit,
+        'imageUrl': imageUrl,
+        'categoryId': _selectedCategoryId,
+        'isPopular': _isPopular,
+        'isSpecialOffer': _isSpecialOffer,
+        'iconCode': 0xe25e, // Default icon code
+        'updatedAt': FieldValue.serverTimestamp(),
+        'nameSearch': name.toLowerCase(), // For case-insensitive search
+        // Add deliveryFee and gst if provided
+        'deliveryFee': _deliveryFeeController.text.trim().isNotEmpty
+            ? double.parse(_deliveryFeeController.text.trim())
+            : null,
+        'gst': _taxRateController.text.trim().isNotEmpty
+            ? double.parse(_taxRateController.text.trim())
+            : null,
+      };
+
+      if (_isEditing && _currentProductId != null) {
+        // Update existing product
+        await productsRef.doc(_currentProductId).update(productData);
+        _showSuccessSnackBar('Product updated successfully');
+      } else {
+        // Create new product
+        productData['createdAt'] = FieldValue.serverTimestamp();
+        await productsRef.add(productData);
+        _showSuccessSnackBar('Product added successfully');
+      }
+
+      // Reset form and refresh product list
+      _resetForm();
+      await _loadProducts();
+
+      // Switch to product list tab
+      _tabController.animateTo(1);
+    } catch (e) {
+      _showErrorSnackBar('Error saving product: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
-}
 
 // Save category (create or update)
-Future<void> _saveCategory() async {
-  // Validate form
-  if (!_categoryFormKey.currentState!.validate()) {
-    return;
-  }
-
-  setState(() {
-    _isLoading = true;
-  });
-
-  try {
-    // Parse form values
-    final name = _categoryNameController.text.trim();
-    final iconCode = int.tryParse(_categoryIconCodeController.text.trim().replaceAll('0x', ''), radix: 16) ?? 0xe25e;
-    final color = _categoryColorController.text.trim();
-    String? imageUrl = _categoryImageUrlController.text.trim();
-
-    // Upload image if selected
-    if (_categoryImageFile != null) {
-      setState(() {
-        _isUploading = true;
-      });
-
-      try {
-        // Create a unique filename
-        final fileName = 'category_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final ref = storageRef.child('category_images/$fileName');
-
-        // Upload the file to Firebase Storage
-        final uploadTask = ref.putFile(_categoryImageFile!);
-        final TaskSnapshot snapshot = await uploadTask;
-
-        // Get the download URL
-        imageUrl = await snapshot.ref.getDownloadURL();
-
-        setState(() {
-          _categoryImageUrlController.text = imageUrl!;
-          _isUploading = false;
-        });
-      } catch (e) {
-        setState(() {
-          _isUploading = false;
-        });
-        _showErrorSnackBar('Error uploading image: $e');
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
+  Future<void> _saveCategory() async {
+    // Validate form
+    if (!_categoryFormKey.currentState!.validate()) {
+      return;
     }
 
-    // Prepare category data
-    final categoryData = {
-      'name': name,
-      'iconCode': iconCode,
-      'color': color,
-      'imageUrl': imageUrl,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (_isEditingCategory && _currentCategoryId != null) {
-      // Update existing category
-      await categoriesRef.doc(_currentCategoryId).update(categoryData);
-      _showSuccessSnackBar('Category updated successfully');
-    } else {
-      // Create new category
-      categoryData['createdAt'] = FieldValue.serverTimestamp();
-      await categoriesRef.add(categoryData);
-      _showSuccessSnackBar('Category added successfully');
-    }
-
-    // Reset form and refresh category list
-    _resetCategoryForm();
-    await _loadCategories();
-  } catch (e) {
-    _showErrorSnackBar('Error saving category: $e');
-  } finally {
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
     });
+
+    try {
+      // Parse form values
+      final name = _categoryNameController.text.trim();
+      final iconCode = int.tryParse(
+              _categoryIconCodeController.text.trim().replaceAll('0x', ''),
+              radix: 16) ??
+          0xe25e;
+      final color = _categoryColorController.text.trim();
+      String? imageUrl = _categoryImageUrlController.text.trim();
+
+      // Upload image if selected
+      if (_categoryImageFile != null) {
+        setState(() {
+          _isUploading = true;
+        });
+
+        try {
+          // Create a unique filename
+          final fileName =
+              'category_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final ref = storageRef.child('category_images/$fileName');
+
+          // Upload the file to Firebase Storage
+          final uploadTask = ref.putFile(_categoryImageFile!);
+          final TaskSnapshot snapshot = await uploadTask;
+
+          // Get the download URL
+          imageUrl = await snapshot.ref.getDownloadURL();
+
+          setState(() {
+            _categoryImageUrlController.text = imageUrl!;
+            _isUploading = false;
+          });
+        } catch (e) {
+          setState(() {
+            _isUploading = false;
+          });
+          _showErrorSnackBar('Error uploading image: $e');
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
+      // Prepare category data
+      final categoryData = {
+        'name': name,
+        'iconCode': iconCode,
+        'color': color,
+        'imageUrl': imageUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (_isEditingCategory && _currentCategoryId != null) {
+        // Update existing category
+        await categoriesRef.doc(_currentCategoryId).update(categoryData);
+        _showSuccessSnackBar('Category updated successfully');
+      } else {
+        // Create new category
+        categoryData['createdAt'] = FieldValue.serverTimestamp();
+        await categoriesRef.add(categoryData);
+        _showSuccessSnackBar('Category added successfully');
+      }
+
+      // Reset form and refresh category list
+      _resetCategoryForm();
+      await _loadCategories();
+    } catch (e) {
+      _showErrorSnackBar('Error saving category: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
-}
 
 // Pick image from gallery or camera
-Future<void> _pickImage(ImageSource source, {bool forOffer = false, bool forCategory = false}) async {
-  try {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: source,
-      maxWidth: 800,
-      maxHeight: 800,
-      imageQuality: 85,
-    );
+  Future<void> _pickImage(ImageSource source,
+      {bool forOffer = false, bool forCategory = false}) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
 
-    if (pickedFile != null) {
-      setState(() {
-        if (forCategory) {
-          _categoryImageFile = File(pickedFile.path);
-          // Clear any existing URL since we'll upload a new image
-          _categoryImageUrlController.text = '';
-        } else if (forOffer) {
-          _imageFile = File(pickedFile.path);
-          // Clear any existing URL since we'll upload a new image
-          _imageUrlController.text = '';
-        } else {
-          _imageFile = File(pickedFile.path);
-          // Clear any existing URL since we'll upload a new image
-          _imageUrlController.text = '';
-        }
-      });
+      if (pickedFile != null) {
+        setState(() {
+          if (forCategory) {
+            _categoryImageFile = File(pickedFile.path);
+            // Clear any existing URL since we'll upload a new image
+            _categoryImageUrlController.text = '';
+          } else if (forOffer) {
+            _imageFile = File(pickedFile.path);
+            // Clear any existing URL since we'll upload a new image
+            _imageUrlController.text = '';
+          } else {
+            _imageFile = File(pickedFile.path);
+            // Clear any existing URL since we'll upload a new image
+            _imageUrlController.text = '';
+          }
+        });
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error picking image: $e');
     }
-  } catch (e) {
-    _showErrorSnackBar('Error picking image: $e');
   }
-}
 
 // Show image picker options
-void _showImagePickerOptions({bool forOffer = false, bool forCategory = false}) {
-  showModalBottomSheet(
-    context: context,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (context) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Select Image Source',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.photo_library,
-                  color: Color(0xFF1E88E5),
-                ),
+  void _showImagePickerOptions(
+      {bool forOffer = false, bool forCategory = false}) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Select Image Source',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              title: const Text('Gallery'),
-              subtitle: const Text('Select from your photo library'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery, forOffer: forOffer, forCategory: forCategory);
-              },
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.photo_camera,
-                  color: Color(0xFF1E88E5),
-                ),
-              ),
-              title: const Text('Camera'),
-              subtitle: const Text('Take a new photo'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera, forOffer: forOffer, forCategory: forCategory);
-              },
-            ),
-            if ((forCategory && (_categoryImageUrlController.text.isNotEmpty || _categoryImageFile != null)) ||
-                (forOffer && (_imageUrlController.text.isNotEmpty || _imageFile != null)) ||
-                (!forOffer && !forCategory && (_imageUrlController.text.isNotEmpty || _imageFile != null)))
+              const SizedBox(height: 16),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: errorColor.withOpacity(0.1),
+                    color: primaryColor.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.delete, color: errorColor),
+                  child: const Icon(
+                    Icons.photo_library,
+                    color: Color(0xFF1E88E5),
+                  ),
                 ),
-                title: Text(
-                  'Remove Image',
-                  style: TextStyle(color: errorColor),
-                ),
-                subtitle: const Text('Clear the current image'),
+                title: const Text('Gallery'),
+                subtitle: const Text('Select from your photo library'),
                 onTap: () {
                   Navigator.pop(context);
-                  setState(() {
-                    if (forCategory) {
-                      _categoryImageFile = null;
-                      _categoryImageUrlController.clear();
-                    } else if (forOffer) {
-                      _imageFile = null;
-                      _imageUrlController.clear();
-                    } else {
-                      _imageFile = null;
-                      _imageUrlController.clear();
-                    }
-                  });
+                  _pickImage(ImageSource.gallery,
+                      forOffer: forOffer, forCategory: forCategory);
                 },
               ),
-          ],
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.photo_camera,
+                    color: Color(0xFF1E88E5),
+                  ),
+                ),
+                title: const Text('Camera'),
+                subtitle: const Text('Take a new photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera,
+                      forOffer: forOffer, forCategory: forCategory);
+                },
+              ),
+              if ((forCategory &&
+                      (_categoryImageUrlController.text.isNotEmpty ||
+                          _categoryImageFile != null)) ||
+                  (forOffer &&
+                      (_imageUrlController.text.isNotEmpty ||
+                          _imageFile != null)) ||
+                  (!forOffer &&
+                      !forCategory &&
+                      (_imageUrlController.text.isNotEmpty ||
+                          _imageFile != null)))
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: errorColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.delete, color: errorColor),
+                  ),
+                  title: Text(
+                    'Remove Image',
+                    style: TextStyle(color: errorColor),
+                  ),
+                  subtitle: const Text('Clear the current image'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      if (forCategory) {
+                        _categoryImageFile = null;
+                        _categoryImageUrlController.clear();
+                      } else if (forOffer) {
+                        _imageFile = null;
+                        _imageUrlController.clear();
+                      } else {
+                        _imageFile = null;
+                        _imageUrlController.clear();
+                      }
+                    });
+                  },
+                ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   // Preview image in a dialog
   void _previewImage(String imageUrl) {
     showDialog(
       context: context,
-      builder:
-          (context) => Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppBar(
+              title: const Text('Image Preview'),
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.black,
+              elevation: 0,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+              ),
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppBar(
-                  title: const Text('Image Preview'),
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
-                  ),
-                  leading: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+            InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: const EdgeInsets.all(20),
+              minScale: 0.5,
+              maxScale: 4,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                placeholder: (context, url) => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: CircularProgressIndicator(),
                   ),
                 ),
-                InteractiveViewer(
-                  panEnabled: true,
-                  boundaryMargin: const EdgeInsets.all(20),
-                  minScale: 0.5,
-                  maxScale: 4,
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    placeholder:
-                        (context, url) => const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(40),
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                    errorWidget:
-                        (context, url, error) => Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.error, color: errorColor, size: 48),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Failed to load image',
-                                style: TextStyle(color: errorColor),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                error.toString(),
-                                style: const TextStyle(fontSize: 12),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                errorWidget: (context, url, error) => Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(Icons.close),
-                        label: const Text('Close'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey.shade200,
-                          foregroundColor: Colors.black87,
-                        ),
+                      Icon(Icons.error, color: errorColor, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Failed to load image',
+                        style: TextStyle(color: errorColor),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          // Copy image URL to clipboard
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(Icons.copy),
-                        label: const Text('Copy URL'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          foregroundColor: Colors.white,
-                        ),
+                      const SizedBox(height: 8),
+                      Text(
+                        error.toString(),
+                        style: const TextStyle(fontSize: 12),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
                 ),
-              ],
+                fit: BoxFit.contain,
+              ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.close),
+                    label: const Text('Close'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey.shade200,
+                      foregroundColor: Colors.black87,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // Copy image URL to clipboard
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.copy),
+                    label: const Text('Copy URL'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1086,9 +1111,8 @@ void _showImagePickerOptions({bool forOffer = false, bool forCategory = false}) 
                 Row(
                   children: [
                     // Discount Percentage
-                    Expanded(
-                      child: TextFormField(
-                ))],
+                    Expanded(child: TextFormField())
+                  ],
                 ),
                 const SizedBox(height: 16),
 
@@ -1185,13 +1209,12 @@ void _showImagePickerOptions({bool forOffer = false, bool forCategory = false}) 
                       borderSide: BorderSide(color: primaryColor, width: 2),
                     ),
                   ),
-                  items:
-                      _categories.map((category) {
-                        return DropdownMenuItem<String>(
-                          value: category['id'],
-                          child: Text(category['name']),
-                        );
-                      }).toList(),
+                  items: _categories.map((category) {
+                    return DropdownMenuItem<String>(
+                      value: category['id'],
+                      child: Text(category['name']),
+                    );
+                  }).toList(),
                   onChanged: (value) {
                     setState(() {
                       _selectedCategoryId = value;
@@ -1224,9 +1247,8 @@ void _showImagePickerOptions({bool forOffer = false, bool forCategory = false}) 
                                 _isValidUrl(_imageUrlController.text))
                               IconButton(
                                 icon: const Icon(Icons.preview),
-                                onPressed:
-                                    () =>
-                                        _previewImage(_imageUrlController.text),
+                                onPressed: () =>
+                                    _previewImage(_imageUrlController.text),
                                 tooltip: 'Preview Image',
                               ),
 
@@ -1295,23 +1317,20 @@ void _showImagePickerOptions({bool forOffer = false, bool forCategory = false}) 
                                   height: 200,
                                   width: double.infinity,
                                   fit: BoxFit.contain,
-                                  placeholder:
-                                      (context, url) => const Center(
-                                        child: CircularProgressIndicator(),
+                                  placeholder: (context, url) => const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                  errorWidget: (context, url, error) => Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.error, color: errorColor),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Failed to load image',
+                                        style: TextStyle(color: errorColor),
                                       ),
-                                  errorWidget:
-                                      (context, url, error) => Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.error, color: errorColor),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'Failed to load image',
-                                            style: TextStyle(color: errorColor),
-                                          ),
-                                        ],
-                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
 
@@ -1413,6 +1432,91 @@ void _showImagePickerOptions({bool forOffer = false, bool forCategory = false}) 
                 ),
                 const SizedBox(height: 24),
 
+                // Delivery Fee and GST (side by side)
+                Row(
+                  children: [
+                    // Delivery Fee
+                    Expanded(
+                      child: TextFormField(
+                        controller: _deliveryFeeController,
+                        decoration: InputDecoration(
+                          labelText: 'Delivery Fee (₹)',
+                          hintText: 'Enter delivery fee for this product',
+                          prefixIcon: const Icon(Icons.delivery_dining),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        validator: (value) {
+                          if (value != null && value.trim().isNotEmpty) {
+                            try {
+                              final fee = double.parse(value);
+                              if (fee < 0) {
+                                return 'Fee cannot be negative';
+                              }
+                            } catch (e) {
+                              return 'Enter valid number';
+                            }
+                          }
+                          return null;
+                        },
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // GST
+                    Expanded(
+                      child: TextFormField(
+                        controller: _taxRateController,
+                        decoration: InputDecoration(
+                          labelText: 'GST (%)',
+                          hintText: 'Enter GST for this product',
+                          prefixIcon: const Icon(Icons.percent),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        validator: (value) {
+                          if (value != null && value.trim().isNotEmpty) {
+                            try {
+                              final gst = double.parse(value);
+                              if (gst < 0) {
+                                return 'GST cannot be negative';
+                              }
+                              if (gst > 100) {
+                                return 'GST cannot exceed 100%';
+                              }
+                            } catch (e) {
+                              return 'Enter valid number';
+                            }
+                          }
+                          return null;
+                        },
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
                 // Submit button
                 SizedBox(
                   width: double.infinity,
@@ -1466,565 +1570,576 @@ void _showImagePickerOptions({bool forOffer = false, bool forCategory = false}) 
   }
 
 // Build the category form
-Widget _buildCategoryForm() {
-  return Form(
-    key: _categoryFormKey,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Form header
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: primaryColor,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(16),
+  Widget _buildCategoryForm() {
+    return Form(
+      key: _categoryFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Form header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _isEditingCategory ? Icons.edit : Icons.add_circle,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _isEditingCategory ? 'Edit Category' : 'Add New Category',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                if (_isEditingCategory)
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: _resetCategoryForm,
+                    tooltip: 'Cancel Editing',
+                  ),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              Icon(
-                _isEditingCategory ? Icons.edit : Icons.add_circle,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _isEditingCategory ? 'Edit Category' : 'Add New Category',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              if (_isEditingCategory)
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: _resetCategoryForm,
-                  tooltip: 'Cancel Editing',
-                ),
-            ],
-          ),
-        ),
 
-        // Form fields
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Category name
-              TextFormField(
-                controller: _categoryNameController,
-                decoration: InputDecoration(
-                  labelText: 'Category Name *',
-                  hintText: 'Enter category name',
-                  prefixIcon: const Icon(Icons.category),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: primaryColor, width: 2),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a category name';
-                  }
-                  return null;
-                },
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 16),
-
-              // Icon Code and Color (side by side)
-              Row(
-                children: [
-                  // Icon Code
-                  Expanded(
-                    child: TextFormField(
-                      controller: _categoryIconCodeController,
-                      decoration: InputDecoration(
-                        labelText: 'Icon Code *',
-                        hintText: 'e.g., 0xe25e',
-                        prefixIcon: const Icon(Icons.emoji_symbols),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: primaryColor,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter an icon code';
-                        }
-                        return null;
-                      },
-                      textInputAction: TextInputAction.next,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Color
-                  Expanded(
-                    child: TextFormField(
-                      controller: _categoryColorController,
-                      decoration: InputDecoration(
-                        labelText: 'Color Code *',
-                        hintText: 'e.g., 0xFF1E88E5',
-                        prefixIcon: const Icon(Icons.color_lens),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: primaryColor,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter a color code';
-                        }
-                        if (!value.startsWith('0xFF')) {
-                          return 'Must start with 0xFF';
-                        }
-                        return null;
-                      },
-                      textInputAction: TextInputAction.next,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Image URL with preview
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: _categoryImageUrlController,
-                    decoration: InputDecoration(
-                      labelText: 'Image URL *',
-                      hintText: 'Enter image URL or upload an image',
-                      prefixIcon: const Icon(Icons.image),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Preview button
-                          if (_categoryImageUrlController.text.isNotEmpty &&
-                              _isValidUrl(_categoryImageUrlController.text))
-                            IconButton(
-                              icon: const Icon(Icons.preview),
-                              onPressed: () => _previewImage(_categoryImageUrlController.text),
-                              tooltip: 'Preview Image',
-                            ),
-
-                          // Upload button
-                          IconButton(
-                            icon: const Icon(Icons.upload),
-                            onPressed: () => _showImagePickerOptions(forOffer: false, forCategory: true),
-                            tooltip: 'Upload Image',
-                          ),
-                        ],
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: primaryColor, width: 2),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter an image URL';
-                      }
-                      if (!_isValidUrl(value)) {
-                        return 'Please enter a valid URL';
-                      }
-                      return null;
-                    },
-                    onChanged: (value) {
-                      // Force rebuild to update preview
-                      setState(() {});
-                    },
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Image preview
-                  if (_categoryImageFile != null ||
-                      (_categoryImageUrlController.text.isNotEmpty &&
-                          _isValidUrl(_categoryImageUrlController.text)))
-                    Container(
-                      height: 200,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          if (_categoryImageFile != null)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.file(
-                                _categoryImageFile!,
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.contain,
-                              ),
-                            )
-                          else if (_categoryImageUrlController.text.isNotEmpty &&
-                              _isValidUrl(_categoryImageUrlController.text))
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: CachedNetworkImage(
-                                imageUrl: _categoryImageUrlController.text,
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                                errorWidget: (context, url, error) => Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.error, color: errorColor),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Failed to load image',
-                                      style: TextStyle(color: errorColor),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                          // Remove image button
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _categoryImageFile = null;
-                                    _categoryImageUrlController.clear();
-                                  });
-                                },
-                                tooltip: 'Remove Image',
-                                constraints: const BoxConstraints(
-                                  minWidth: 36,
-                                  minHeight: 36,
-                                ),
-                                padding: EdgeInsets.zero,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Submit button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading || _isUploading ? null : _saveCategory,
-                  icon: Icon(_isEditingCategory ? Icons.save : Icons.add),
-                  label: Text(_isEditingCategory ? 'Update Category' : 'Add Category'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
+          // Form fields
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Category name
+                TextFormField(
+                  controller: _categoryNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Category Name *',
+                    hintText: 'Enter category name',
+                    prefixIcon: const Icon(Icons.category),
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    elevation: 2,
-                  ),
-                ),
-              ),
-
-              if (_isLoading || _isUploading)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            primaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _isUploading
-                              ? 'Uploading image...'
-                              : 'Saving category...',
-                          style: TextStyle(
-                            color: Colors.grey.shade700,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: primaryColor, width: 2),
                     ),
                   ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter a category name';
+                    }
+                    return null;
+                  },
+                  textInputAction: TextInputAction.next,
                 ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
+                const SizedBox(height: 16),
 
-// Build category list item
-Widget _buildCategoryItem(Map<String, dynamic> category) {
-  final Color categoryColor = Color(int.parse(category['color']));
-  
-  return Container(
-    margin: const EdgeInsets.only(bottom: 16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.shade200,
-          offset: const Offset(0, 2),
-          blurRadius: 6,
-        ),
-      ],
-    ),
-    child: Column(
-      children: [
-        // Category header with image
-        Row(
-          children: [
-            // Category image
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-              ),
-              child: category['imageUrl'] != null && category['imageUrl'].isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: category['imageUrl'],
-                      width: 120,
-                      height: 120,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        width: 120,
-                        height: 120,
-                        color: categoryColor.withOpacity(0.1),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              categoryColor,
+                // Icon Code and Color (side by side)
+                Row(
+                  children: [
+                    // Icon Code
+                    Expanded(
+                      child: TextFormField(
+                        controller: _categoryIconCodeController,
+                        decoration: InputDecoration(
+                          labelText: 'Icon Code *',
+                          hintText: 'e.g., 0xe25e',
+                          prefixIcon: const Icon(Icons.emoji_symbols),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: primaryColor,
+                              width: 2,
                             ),
                           ),
                         ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter an icon code';
+                          }
+                          return null;
+                        },
+                        textInputAction: TextInputAction.next,
                       ),
-                      errorWidget: (context, url, error) => Container(
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Color
+                    Expanded(
+                      child: TextFormField(
+                        controller: _categoryColorController,
+                        decoration: InputDecoration(
+                          labelText: 'Color Code *',
+                          hintText: 'e.g., 0xFF1E88E5',
+                          prefixIcon: const Icon(Icons.color_lens),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter a color code';
+                          }
+                          if (!value.startsWith('0xFF')) {
+                            return 'Must start with 0xFF';
+                          }
+                          return null;
+                        },
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Image URL with preview
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: _categoryImageUrlController,
+                      decoration: InputDecoration(
+                        labelText: 'Image URL *',
+                        hintText: 'Enter image URL or upload an image',
+                        prefixIcon: const Icon(Icons.image),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Preview button
+                            if (_categoryImageUrlController.text.isNotEmpty &&
+                                _isValidUrl(_categoryImageUrlController.text))
+                              IconButton(
+                                icon: const Icon(Icons.preview),
+                                onPressed: () => _previewImage(
+                                    _categoryImageUrlController.text),
+                                tooltip: 'Preview Image',
+                              ),
+
+                            // Upload button
+                            IconButton(
+                              icon: const Icon(Icons.upload),
+                              onPressed: () => _showImagePickerOptions(
+                                  forOffer: false, forCategory: true),
+                              tooltip: 'Upload Image',
+                            ),
+                          ],
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: primaryColor, width: 2),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter an image URL';
+                        }
+                        if (!_isValidUrl(value)) {
+                          return 'Please enter a valid URL';
+                        }
+                        return null;
+                      },
+                      onChanged: (value) {
+                        // Force rebuild to update preview
+                        setState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Image preview
+                    if (_categoryImageFile != null ||
+                        (_categoryImageUrlController.text.isNotEmpty &&
+                            _isValidUrl(_categoryImageUrlController.text)))
+                      Container(
+                        height: 200,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            if (_categoryImageFile != null)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  _categoryImageFile!,
+                                  height: 200,
+                                  width: double.infinity,
+                                  fit: BoxFit.contain,
+                                ),
+                              )
+                            else if (_categoryImageUrlController
+                                    .text.isNotEmpty &&
+                                _isValidUrl(_categoryImageUrlController.text))
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: CachedNetworkImage(
+                                  imageUrl: _categoryImageUrlController.text,
+                                  height: 200,
+                                  width: double.infinity,
+                                  fit: BoxFit.contain,
+                                  placeholder: (context, url) => const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                  errorWidget: (context, url, error) => Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.error, color: errorColor),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Failed to load image',
+                                        style: TextStyle(color: errorColor),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                            // Remove image button
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _categoryImageFile = null;
+                                      _categoryImageUrlController.clear();
+                                    });
+                                  },
+                                  tooltip: 'Remove Image',
+                                  constraints: const BoxConstraints(
+                                    minWidth: 36,
+                                    minHeight: 36,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Submit button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed:
+                        _isLoading || _isUploading ? null : _saveCategory,
+                    icon: Icon(_isEditingCategory ? Icons.save : Icons.add),
+                    label: Text(_isEditingCategory
+                        ? 'Update Category'
+                        : 'Add Category'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 2,
+                    ),
+                  ),
+                ),
+
+                if (_isLoading || _isUploading)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _isUploading
+                                ? 'Uploading image...'
+                                : 'Saving category...',
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+// Build category list item
+  Widget _buildCategoryItem(Map<String, dynamic> category) {
+    final Color categoryColor = Color(int.parse(category['color']));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            offset: const Offset(0, 2),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Category header with image
+          Row(
+            children: [
+              // Category image
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
+                child: category['imageUrl'] != null &&
+                        category['imageUrl'].isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: category['imageUrl'],
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          width: 120,
+                          height: 120,
+                          color: categoryColor.withOpacity(0.1),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                categoryColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 120,
+                          height: 120,
+                          color: categoryColor.withOpacity(0.1),
+                          child: Icon(
+                            Icons.image_not_supported_outlined,
+                            color: categoryColor,
+                          ),
+                        ),
+                      )
+                    : Container(
                         width: 120,
                         height: 120,
                         color: categoryColor.withOpacity(0.1),
                         child: Icon(
-                          Icons.image_not_supported_outlined,
+                          IconData(
+                            int.tryParse(category['iconCode']?.toString() ?? '',
+                                    radix: 16) ??
+                                0xe25e,
+                            fontFamily: 'MaterialIcons',
+                          ),
                           color: categoryColor,
+                          size: 40,
                         ),
                       ),
-                    )
-                  : Container(
-                      width: 120,
-                      height: 120,
-                      color: categoryColor.withOpacity(0.1),
-                      child: Icon(
-                        IconData(
-                          int.tryParse(category['iconCode']?.toString() ?? '', radix: 16) ?? 0xe25e,
-                          fontFamily: 'MaterialIcons',
-                        ),
-                        color: categoryColor,
-                        size: 40,
-                      ),
-                    ),
-            ),
+              ),
 
-            // Category details
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category['name'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+              // Category details
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        category['name'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: categoryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.palette,
-                            size: 16,
-                            color: categoryColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            category['color'],
-                            style: TextStyle(
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: categoryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.palette,
+                              size: 16,
                               color: categoryColor,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              category['color'],
+                              style: TextStyle(
+                                color: categoryColor,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    FutureBuilder<QuerySnapshot>(
-                      future: productsRef.where('categoryId', isEqualTo: category['id']).get(),
-                      builder: (context, snapshot) {
-                        int productCount = 0;
-                        if (snapshot.hasData) {
-                          productCount = snapshot.data!.docs.length;
-                        }
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.shopping_bag,
-                                size: 16,
-                                color: Colors.grey.shade700,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$productCount products',
-                                style: TextStyle(
+                      const SizedBox(height: 8),
+                      FutureBuilder<QuerySnapshot>(
+                        future: productsRef
+                            .where('categoryId', isEqualTo: category['id'])
+                            .get(),
+                        builder: (context, snapshot) {
+                          int productCount = 0;
+                          if (snapshot.hasData) {
+                            productCount = snapshot.data!.docs.length;
+                          }
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.shopping_bag,
+                                  size: 16,
                                   color: Colors.grey.shade700,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 12,
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$productCount products',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-
-        // Action buttons
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(16),
-              bottomRight: Radius.circular(16),
-            ),
-            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            ],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              // Preview image button
-              if (category['imageUrl'] != null && category['imageUrl'].isNotEmpty)
+
+          // Action buttons
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Preview image button
+                if (category['imageUrl'] != null &&
+                    category['imageUrl'].isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () => _previewImage(category['imageUrl']),
+                    icon: const Icon(Icons.image, size: 18),
+                    label: const Text('View Image'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+
+                // Edit button
                 TextButton.icon(
-                  onPressed: () => _previewImage(category['imageUrl']),
-                  icon: const Icon(Icons.image, size: 18),
-                  label: const Text('View Image'),
+                  onPressed: () => _editCategory(category),
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: const Text('Edit'),
                   style: TextButton.styleFrom(
                     foregroundColor: primaryColor,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
                 ),
 
-              // Edit button
-              TextButton.icon(
-                onPressed: () => _editCategory(category),
-                icon: const Icon(Icons.edit, size: 18),
-                label: const Text('Edit'),
-                style: TextButton.styleFrom(
-                  foregroundColor: primaryColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                // Delete button
+                TextButton.icon(
+                  onPressed: () => _deleteCategory(category['id']),
+                  icon: const Icon(Icons.delete, size: 18),
+                  label: const Text('Delete'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: errorColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
                 ),
-              ),
-
-              // Delete button
-              TextButton.icon(
-                onPressed: () => _deleteCategory(category['id']),
-                icon: const Icon(Icons.delete, size: 18),
-                label: const Text('Delete'),
-                style: TextButton.styleFrom(
-                  foregroundColor: errorColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   // Build product list item
   Widget _buildProductItem(GroceryItem product) {
     // Find category name
-    final categoryName =
-        _categories.firstWhere(
-          (category) => category['id'] == product.categoryId,
-          orElse: () => {'name': 'Uncategorized'},
-        )['name'];
+    final categoryName = _categories.firstWhere(
+      (category) => category['id'] == product.categoryId,
+      orElse: () => {'name': 'Uncategorized'},
+    )['name'];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -2050,48 +2165,45 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
                   topLeft: Radius.circular(16),
                   bottomLeft: Radius.circular(16),
                 ),
-                child:
-                    product.imageUrl != null && product.imageUrl!.isNotEmpty
-                        ? CachedNetworkImage(
-                          imageUrl: product.imageUrl!,
+                child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: product.imageUrl!,
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
                           width: 120,
                           height: 120,
-                          fit: BoxFit.cover,
-                          placeholder:
-                              (context, url) => Container(
-                                width: 120,
-                                height: 120,
-                                color: primaryColor.withOpacity(0.1),
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      primaryColor,
-                                    ),
-                                  ),
-                                ),
+                          color: primaryColor.withOpacity(0.1),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                primaryColor,
                               ),
-                          errorWidget:
-                              (context, url, error) => Container(
-                                width: 120,
-                                height: 120,
-                                color: primaryColor.withOpacity(0.1),
-                                child: Icon(
-                                  Icons.image_not_supported_outlined,
-                                  color: primaryColor,
-                                ),
-                              ),
-                        )
-                        : Container(
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
                           width: 120,
                           height: 120,
                           color: primaryColor.withOpacity(0.1),
                           child: Icon(
-                            product.icon,
+                            Icons.image_not_supported_outlined,
                             color: primaryColor,
-                            size: 40,
                           ),
                         ),
+                      )
+                    : Container(
+                        width: 120,
+                        height: 120,
+                        color: primaryColor.withOpacity(0.1),
+                        child: Icon(
+                          product.icon,
+                          color: primaryColor,
+                          size: 40,
+                        ),
+                      ),
               ),
 
               // Product details
@@ -2344,18 +2456,17 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
             decoration: InputDecoration(
               hintText: 'Search products...',
               prefixIcon: const Icon(Icons.search),
-              suffixIcon:
-                  _searchController.text.isNotEmpty
-                      ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                            _applyFiltersAndSort();
-                          });
-                        },
-                      )
-                      : null,
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                          _applyFiltersAndSort();
+                        });
+                      },
+                    )
+                  : null,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -2500,7 +2611,6 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
                       backgroundColor: primaryColor.withOpacity(0.1),
                       labelStyle: TextStyle(color: primaryColor),
                     ),
-
                   if (_filterCategory != null)
                     Chip(
                       label: Text(
@@ -2527,40 +2637,46 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
   // Load settings from Firestore
   Future<void> _loadSettings() async {
     if (!mounted) return;
-    
+
     setState(() {
       _isLoadingSettings = true;
     });
-    
+
     try {
-      final settingsDoc = await FirebaseFirestore.instance.collection('settings').doc('app_settings').get();
-      
+      final settingsDoc = await FirebaseFirestore.instance
+          .collection('settings')
+          .doc('app_settings')
+          .get();
+
       if (settingsDoc.exists) {
         final data = settingsDoc.data();
         if (data != null) {
           setState(() {
             _deliveryFee = (data['deliveryFee'] as num?)?.toDouble() ?? 40.0;
             _taxRate = (data['taxRate'] as num?)?.toDouble() ?? 5.0;
-            
+
             _deliveryFeeController.text = _deliveryFee.toString();
             _taxRateController.text = _taxRate.toString();
           });
         }
       } else {
         // Create default settings if they don't exist
-        await FirebaseFirestore.instance.collection('settings').doc('app_settings').set({
+        await FirebaseFirestore.instance
+            .collection('settings')
+            .doc('app_settings')
+            .set({
           'deliveryFee': _deliveryFee,
           'taxRate': _taxRate,
           'updatedAt': FieldValue.serverTimestamp(),
         });
-        
+
         _deliveryFeeController.text = _deliveryFee.toString();
         _taxRateController.text = _taxRate.toString();
       }
     } catch (e) {
       print('Error loading settings: $e');
       _showErrorSnackBar('Error loading settings: $e');
-      
+
       // Set default values in controllers
       _deliveryFeeController.text = _deliveryFee.toString();
       _taxRateController.text = _taxRate.toString();
@@ -2572,32 +2688,35 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
       }
     }
   }
-  
+
   // Save settings to Firestore
   Future<void> _saveSettings() async {
     if (!_settingsFormKey.currentState!.validate()) {
       return;
     }
-    
+
     setState(() {
       _isUpdatingSettings = true;
     });
-    
+
     try {
       final deliveryFee = double.parse(_deliveryFeeController.text.trim());
       final taxRate = double.parse(_taxRateController.text.trim());
-      
-      await FirebaseFirestore.instance.collection('settings').doc('app_settings').update({
+
+      await FirebaseFirestore.instance
+          .collection('settings')
+          .doc('app_settings')
+          .update({
         'deliveryFee': deliveryFee,
         'taxRate': taxRate,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      
+
       setState(() {
         _deliveryFee = deliveryFee;
         _taxRate = taxRate;
       });
-      
+
       _showSuccessSnackBar('Settings updated successfully');
     } catch (e) {
       print('Error saving settings: $e');
@@ -2610,7 +2729,7 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
       }
     }
   }
-  
+
   // Build the settings tab
   Widget _buildSettingsTab() {
     return Form(
@@ -2645,7 +2764,7 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
               ],
             ),
           ),
-          
+
           // Settings form
           Container(
             padding: const EdgeInsets.all(16),
@@ -2667,7 +2786,8 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
                     child: Column(
                       children: [
                         CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(primaryColor),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -2736,7 +2856,7 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      
+
                       // Tax Rate
                       const Text(
                         'Tax Settings',
@@ -2793,14 +2913,18 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
                         ),
                       ),
                       const SizedBox(height: 32),
-                      
+
                       // Save button
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: _isUpdatingSettings ? null : _saveSettings,
-                          icon: Icon(_isUpdatingSettings ? Icons.hourglass_top : Icons.save),
-                          label: Text(_isUpdatingSettings ? 'Updating...' : 'Save Settings'),
+                          icon: Icon(_isUpdatingSettings
+                              ? Icons.hourglass_top
+                              : Icons.save),
+                          label: Text(_isUpdatingSettings
+                              ? 'Updating...'
+                              : 'Save Settings'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
@@ -2812,7 +2936,7 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
                           ),
                         ),
                       ),
-                      
+
                       if (_isUpdatingSettings)
                         Padding(
                           padding: const EdgeInsets.only(top: 16),
@@ -2839,7 +2963,7 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
                     ],
                   ),
           ),
-          
+
           // Order Management Section
           const SizedBox(height: 32),
           _buildOrderManagementSection(),
@@ -2847,7 +2971,7 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
       ),
     );
   }
-  
+
   // Build the order management section
   Widget _buildOrderManagementSection() {
     return Column(
@@ -2880,7 +3004,7 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
             ],
           ),
         ),
-        
+
         // Order management content
         Container(
           padding: const EdgeInsets.all(16),
@@ -2914,7 +3038,8 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -2936,12 +3061,14 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
         title: const Text('Product Management'),
         backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        foregroundColor: themeProvider.isDarkMode ? Colors.white : Colors.black,
         elevation: 0,
         actions: [
           IconButton(
@@ -2977,174 +3104,178 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
           // Product List Tab
           _isLoading && _products.isEmpty
               ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Loading products...',
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-              : RefreshIndicator(
-                onRefresh: _loadProducts,
-                color: primaryColor,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Product list header
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 5,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  color: primaryColor,
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Product List',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${_filteredProducts.length} products',
-                              style: TextStyle(
-                                color: primaryColor,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                       ),
                       const SizedBox(height: 16),
-
-                      // Filter controls
-                      _buildFilterControls(),
-                      const SizedBox(height: 16),
-
-                      // Product list
-                      if (_filteredProducts.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(32),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.shade200,
-                                offset: const Offset(0, 2),
-                                blurRadius: 6,
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.inventory_2_outlined,
-                                  size: 64,
-                                  color: Colors.grey.shade400,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _searchController.text.isNotEmpty ||
-                                          _filterCategory != null
-                                      ? 'No products match your filters'
-                                      : 'No products available',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: Colors.grey.shade700,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                if (_searchController.text.isNotEmpty ||
-                                    _filterCategory != null)
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      setState(() {
-                                        _searchController.clear();
-                                        _filterCategory = null;
-                                        _applyFiltersAndSort();
-                                      });
-                                    },
-                                    icon: const Icon(Icons.filter_alt_off),
-                                    label: const Text('Clear Filters'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: primaryColor,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                if (_products.isEmpty &&
-                                    _searchController.text.isEmpty &&
-                                    _filterCategory == null)
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      _tabController.animateTo(0);
-                                    },
-                                    icon: const Icon(Icons.add),
-                                    label: const Text('Add Your First Product'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: primaryColor,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        )
-                      else
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _filteredProducts.length,
-                          itemBuilder: (context, index) {
-                            return _buildProductItem(_filteredProducts[index]);
-                          },
+                      Text(
+                        'Loading products...',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 16,
                         ),
-
-                      const SizedBox(height: 32),
+                      ),
                     ],
                   ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadProducts,
+                  color: primaryColor,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Product list header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 5,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: primaryColor,
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Product List',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${_filteredProducts.length} products',
+                                style: TextStyle(
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Filter controls
+                        _buildFilterControls(),
+                        const SizedBox(height: 16),
+
+                        // Product list
+                        if (_filteredProducts.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(32),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.shade200,
+                                  offset: const Offset(0, 2),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.inventory_2_outlined,
+                                    size: 64,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _searchController.text.isNotEmpty ||
+                                            _filterCategory != null
+                                        ? 'No products match your filters'
+                                        : 'No products available',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.grey.shade700,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  if (_searchController.text.isNotEmpty ||
+                                      _filterCategory != null)
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        setState(() {
+                                          _searchController.clear();
+                                          _filterCategory = null;
+                                          _applyFiltersAndSort();
+                                        });
+                                      },
+                                      icon: const Icon(Icons.filter_alt_off),
+                                      label: const Text('Clear Filters'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: primaryColor,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                  if (_products.isEmpty &&
+                                      _searchController.text.isEmpty &&
+                                      _filterCategory == null)
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        _tabController.animateTo(0);
+                                      },
+                                      icon: const Icon(Icons.add),
+                                      label:
+                                          const Text('Add Your First Product'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: primaryColor,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _filteredProducts.length,
+                            itemBuilder: (context, index) {
+                              return _buildProductItem(
+                                  _filteredProducts[index]);
+                            },
+                          ),
+
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
 
           // Categories Tab
           SingleChildScrollView(
@@ -3281,7 +3412,7 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
               ],
             ),
           ),
-          
+
           // Settings Tab
           SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -3289,18 +3420,17 @@ Widget _buildCategoryItem(Map<String, dynamic> category) {
           ),
         ],
       ),
-      floatingActionButton:
-          _tabController.index == 1
-              ? FloatingActionButton(
-                onPressed: () {
-                  _resetForm();
-                  _tabController.animateTo(0);
-                },
-                backgroundColor: primaryColor,
-                child: const Icon(Icons.add),
-                tooltip: 'Add New Product',
-              )
-              : null,
+      floatingActionButton: _tabController.index == 1
+          ? FloatingActionButton(
+              onPressed: () {
+                _resetForm();
+                _tabController.animateTo(0);
+              },
+              backgroundColor: primaryColor,
+              child: const Icon(Icons.add),
+              tooltip: 'Add New Product',
+            )
+          : null,
     );
   }
 }

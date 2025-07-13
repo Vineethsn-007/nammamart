@@ -1,4 +1,4 @@
-name: namma_store
+name: namma_mart
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -62,7 +62,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  adaptive_icon_background: "#FFDD00" # or a background image if you want
+  adaptive_icon_background: "#15131f" # or a background image if you want
   adaptive_icon_foreground: "icons/nammastore-removebg.png"
   image_path: "icons/nammastore.png"
 

@@ -15,7 +15,8 @@ class LoginScreen extends StatefulWidget {
   _LoginScreenState createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -26,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   bool _obscurePassword = true;
-  
+
   int _activeDotIndex = 0;
   final PageController _pageController = PageController();
 
@@ -37,23 +38,24 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
         curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
     );
-    
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
       CurvedAnimation(
         parent: _animationController,
         curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
     );
-    
+
     _animationController.forward();
-    
+
     // Auto-advance pages
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
@@ -61,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       }
     });
   }
-  
+
   void _startAutoScroll() {
     Future.delayed(const Duration(seconds: 4), () {
       if (mounted && _pageController.hasClients) {
@@ -91,10 +93,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         _isLoading = true;
         _errorMessage = '';
       });
-      
+
       // Add haptic feedback
       HapticFeedback.mediumImpact();
-      
+
       try {
         await _authService.signInWithEmailAndPassword(
           _emailController.text,
@@ -105,12 +107,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         if (mounted) {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const HomeScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
                 const begin = Offset(1.0, 0.0);
                 const end = Offset.zero;
                 const curve = Curves.easeInOut;
-                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                var tween = Tween(begin: begin, end: end)
+                    .chain(CurveTween(curve: curve));
                 var offsetAnimation = animation.drive(tween);
                 return SlideTransition(position: offsetAnimation, child: child);
               },
@@ -135,7 +140,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               _errorMessage = 'This user account has been disabled.';
               break;
             default:
-              _errorMessage = e.message ?? 'An error occurred during login. Please try again.';
+              _errorMessage = e.message ??
+                  'An error occurred during login. Please try again.';
           }
         });
         // Error haptic feedback
@@ -156,22 +162,25 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       _isLoading = true;
       _errorMessage = '';
     });
-    
+
     // Add haptic feedback
     HapticFeedback.mediumImpact();
-    
+
     try {
       final userCredential = await _authService.signInWithGoogle();
-      
+
       if (userCredential != null && mounted) {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const HomeScreen(),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
               const begin = Offset(1.0, 0.0);
               const end = Offset.zero;
               const curve = Curves.easeInOut;
-              var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+              var tween =
+                  Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
               var offsetAnimation = animation.drive(tween);
               return SlideTransition(position: offsetAnimation, child: child);
             },
@@ -209,18 +218,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     // Add haptic feedback
     HapticFeedback.lightImpact();
-    
+
     try {
       await _authService.resetPassword(email);
       if (mounted) {
-        final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-        final primaryColor = themeProvider.isDarkMode 
-            ? themeProvider.darkPrimaryColor 
+        final themeProvider =
+            Provider.of<ThemeProvider>(context, listen: false);
+        final primaryColor = themeProvider.isDarkMode
+            ? themeProvider.darkPrimaryColor
             : themeProvider.lightPrimaryColor;
-            
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Password reset email sent. Please check your inbox.'),
+            content: const Text(
+                'Password reset email sent. Please check your inbox.'),
             backgroundColor: primaryColor,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -234,9 +245,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (mounted) {
         setState(() {
           if (e.code == 'user-not-found') {
-            _errorMessage = 'There is no user record corresponding to this email. Please check the email address.';
+            _errorMessage =
+                'There is no user record corresponding to this email. Please check the email address.';
           } else {
-            _errorMessage = 'Failed to send password reset email. Please try again.';
+            _errorMessage =
+                'Failed to send password reset email. Please try again.';
           }
         });
       }
@@ -245,7 +258,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'An unexpected error occurred while sending password reset email: ${e.toString()}';
+          _errorMessage =
+              'An unexpected error occurred while sending password reset email: ${e.toString()}';
         });
       }
       // Error haptic feedback
@@ -260,43 +274,45 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     required VoidCallback onPressed,
   }) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return ElevatedButton.icon(
       icon: Icon(icon, color: color, size: 20),
-      label: Text(
-        text, 
-        style: TextStyle(
-          fontSize: 15, 
-          fontWeight: FontWeight.w500, 
-          color: themeProvider.isDarkMode ? Colors.grey.shade200 : Colors.grey.shade800
-        )
-      ),
+      label: Text(text,
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: themeProvider.isDarkMode
+                  ? Colors.grey.shade200
+                  : Colors.grey.shade800)),
       onPressed: _isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
-        backgroundColor: themeProvider.isDarkMode ? Colors.grey.shade800 : Colors.white,
+        backgroundColor:
+            themeProvider.isDarkMode ? Colors.grey.shade800 : Colors.white,
         elevation: 1,
-        shadowColor: themeProvider.isDarkMode ? Colors.black26 : Colors.grey.shade200,
+        shadowColor:
+            themeProvider.isDarkMode ? Colors.black26 : Colors.grey.shade200,
         side: BorderSide(
-          color: themeProvider.isDarkMode ? Colors.grey.shade700 : Colors.grey.shade200
-        ),
+            color: themeProvider.isDarkMode
+                ? Colors.grey.shade700
+                : Colors.grey.shade200),
       ),
     );
   }
-  
+
   Widget _buildOnboardingItem({
     required String title,
     required String subtitle,
     required IconData icon,
   }) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -308,8 +324,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: themeProvider.isDarkMode 
-                    ? Colors.black26 
+                color: themeProvider.isDarkMode
+                    ? Colors.black26
                     : Colors.grey.shade200,
                 offset: const Offset(0, 4),
                 blurRadius: 15,
@@ -338,7 +354,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w400,
-              color: themeProvider.isDarkMode ? Colors.grey.shade300 : Colors.black87,
+              color: themeProvider.isDarkMode
+                  ? Colors.grey.shade300
+                  : Colors.black87,
               height: 1.5,
             ),
           ),
@@ -350,13 +368,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    final backgroundColor = themeProvider.isDarkMode 
-        ? themeProvider.darkBackgroundColor 
+    final backgroundColor = themeProvider.isDarkMode
+        ? themeProvider.darkBackgroundColor
         : Colors.white;
-    
+
     return Scaffold(
       backgroundColor: backgroundColor,
       body: SafeArea(
@@ -373,7 +391,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       child: Row(
                         children: [
                           Text(
-                            'NammaStore',
+                            'NammaMart',
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -395,17 +413,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         children: [
                           _buildOnboardingItem(
                             title: 'Fast Delivery',
-                            subtitle: 'Get fresh groceries delivered to your doorstep in minutes, not hours.',
+                            subtitle:
+                                'Get fresh groceries delivered to your doorstep in minutes, not hours.',
                             icon: Icons.delivery_dining,
                           ),
                           _buildOnboardingItem(
                             title: 'Exclusive Deals',
-                            subtitle: 'Members save up to 40% on everyday essentials and premium products.',
+                            subtitle:
+                                'Members save up to 40% on everyday essentials and premium products.',
                             icon: Icons.discount,
                           ),
                           _buildOnboardingItem(
                             title: 'Local Favorites',
-                            subtitle: 'Discover and support local businesses with our curated selection.',
+                            subtitle:
+                                'Discover and support local businesses with our curated selection.',
                             icon: Icons.map,
                           ),
                         ],
@@ -423,9 +444,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             height: 8,
                             width: _activeDotIndex == index ? 24 : 8,
                             decoration: BoxDecoration(
-                              color: _activeDotIndex == index ? primaryColor : themeProvider.isDarkMode 
-                                  ? Colors.grey.shade700 
-                                  : Colors.grey.shade300,
+                              color: _activeDotIndex == index
+                                  ? primaryColor
+                                  : themeProvider.isDarkMode
+                                      ? Colors.grey.shade700
+                                      : Colors.grey.shade300,
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -433,7 +456,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -453,7 +477,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                             child: const Text(
                               'Sign In',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w600),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -461,16 +486,24 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             onPressed: () {
                               Navigator.of(context).push(
                                 PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) => const SignupScreen(),
-                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  pageBuilder: (context, animation,
+                                          secondaryAnimation) =>
+                                      const SignupScreen(),
+                                  transitionsBuilder: (context, animation,
+                                      secondaryAnimation, child) {
                                     const begin = Offset(1.0, 0.0);
                                     const end = Offset.zero;
                                     const curve = Curves.easeInOut;
-                                    var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                                    var offsetAnimation = animation.drive(tween);
-                                    return SlideTransition(position: offsetAnimation, child: child);
+                                    var tween = Tween(begin: begin, end: end)
+                                        .chain(CurveTween(curve: curve));
+                                    var offsetAnimation =
+                                        animation.drive(tween);
+                                    return SlideTransition(
+                                        position: offsetAnimation,
+                                        child: child);
                                   },
-                                  transitionDuration: const Duration(milliseconds: 500),
+                                  transitionDuration:
+                                      const Duration(milliseconds: 500),
                                 ),
                               );
                             },
@@ -485,8 +518,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             child: const Text(
                               'Create Account',
                               style: TextStyle(
-                                fontSize: 16, 
-                                fontWeight: FontWeight.w600, 
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -506,14 +539,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: themeProvider.isDarkMode ? Colors.grey.shade800 : Colors.white,
+                      color: themeProvider.isDarkMode
+                          ? Colors.grey.shade800
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(primaryColor),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -521,7 +557,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+                            color: themeProvider.isDarkMode
+                                ? Colors.white
+                                : Colors.black87,
                           ),
                         ),
                       ],
@@ -537,13 +575,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   void _showLoginSheet(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    final backgroundColor = themeProvider.isDarkMode 
-        ? themeProvider.darkCardColor 
-        : Colors.white;
-    
+    final backgroundColor =
+        themeProvider.isDarkMode ? themeProvider.darkCardColor : Colors.white;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -556,11 +593,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           builder: (context, setState) {
             return Container(
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
                 boxShadow: [
                   BoxShadow(
-                    color: themeProvider.isDarkMode 
-                        ? Colors.black26 
+                    color: themeProvider.isDarkMode
+                        ? Colors.black26
                         : Colors.grey.shade200,
                     blurRadius: 10,
                     offset: const Offset(0, -2),
@@ -585,8 +623,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           width: 40,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: themeProvider.isDarkMode 
-                                ? Colors.grey.shade700 
+                            color: themeProvider.isDarkMode
+                                ? Colors.grey.shade700
                                 : Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(2),
                           ),
@@ -607,8 +645,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
-                          color: themeProvider.isDarkMode 
-                              ? Colors.grey.shade400 
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey.shade400
                               : Colors.grey.shade700,
                         ),
                       ),
@@ -622,47 +660,45 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide(
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade700 
-                                  : Colors.grey.shade300
-                            ),
+                                color: themeProvider.isDarkMode
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade300),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide(
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade700 
-                                  : Colors.grey.shade300
-                            ),
+                                color: themeProvider.isDarkMode
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade300),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: primaryColor, width: 1.5),
+                            borderSide:
+                                BorderSide(color: primaryColor, width: 1.5),
                           ),
-                          prefixIcon: Icon(Icons.email_outlined, color: primaryColor, size: 20),
+                          prefixIcon: Icon(Icons.email_outlined,
+                              color: primaryColor, size: 20),
                           floatingLabelStyle: TextStyle(color: primaryColor),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 18),
                           filled: true,
-                          fillColor: themeProvider.isDarkMode 
-                              ? Colors.grey.shade800 
+                          fillColor: themeProvider.isDarkMode
+                              ? Colors.grey.shade800
                               : Colors.grey.shade50,
                           labelStyle: TextStyle(
-                            color: themeProvider.isDarkMode 
-                                ? Colors.grey.shade300 
-                                : null
-                          ),
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey.shade300
+                                  : null),
                           hintStyle: TextStyle(
-                            color: themeProvider.isDarkMode 
-                                ? Colors.grey.shade500 
-                                : Colors.grey.shade500
-                          ),
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey.shade500
+                                  : Colors.grey.shade500),
                         ),
                         validator: Validators.validateEmail,
                         style: TextStyle(
-                          color: themeProvider.isDarkMode 
-                              ? Colors.white 
-                              : Colors.black87
-                        ),
+                            color: themeProvider.isDarkMode
+                                ? Colors.white
+                                : Colors.black87),
                       ),
                       const SizedBox(height: 20),
                       TextFormField(
@@ -674,29 +710,31 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide(
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade700 
-                                  : Colors.grey.shade300
-                            ),
+                                color: themeProvider.isDarkMode
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade300),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide(
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade700 
-                                  : Colors.grey.shade300
-                            ),
+                                color: themeProvider.isDarkMode
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade300),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: primaryColor, width: 1.5),
+                            borderSide:
+                                BorderSide(color: primaryColor, width: 1.5),
                           ),
-                          prefixIcon: Icon(Icons.lock_outline, color: primaryColor, size: 20),
+                          prefixIcon: Icon(Icons.lock_outline,
+                              color: primaryColor, size: 20),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade400 
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey.shade400
                                   : Colors.grey.shade600,
                               size: 20,
                             ),
@@ -707,28 +745,26 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             },
                           ),
                           floatingLabelStyle: TextStyle(color: primaryColor),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 18),
                           filled: true,
-                          fillColor: themeProvider.isDarkMode 
-                              ? Colors.grey.shade800 
+                          fillColor: themeProvider.isDarkMode
+                              ? Colors.grey.shade800
                               : Colors.grey.shade50,
                           labelStyle: TextStyle(
-                            color: themeProvider.isDarkMode 
-                                ? Colors.grey.shade300 
-                                : null
-                          ),
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey.shade300
+                                  : null),
                           hintStyle: TextStyle(
-                            color: themeProvider.isDarkMode 
-                                ? Colors.grey.shade500 
-                                : Colors.grey.shade500
-                          ),
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey.shade500
+                                  : Colors.grey.shade500),
                         ),
                         validator: Validators.validatePassword,
                         style: TextStyle(
-                          color: themeProvider.isDarkMode 
-                              ? Colors.white 
-                              : Colors.black87
-                        ),
+                            color: themeProvider.isDarkMode
+                                ? Colors.white
+                                : Colors.black87),
                       ),
                       const SizedBox(height: 12),
                       Align(
@@ -737,7 +773,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           onPressed: _forgotPassword,
                           style: TextButton.styleFrom(
                             foregroundColor: primaryColor,
-                            textStyle: const TextStyle(fontWeight: FontWeight.w500),
+                            textStyle:
+                                const TextStyle(fontWeight: FontWeight.w500),
                             padding: EdgeInsets.zero,
                             minimumSize: const Size(0, 36),
                           ),
@@ -750,21 +787,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           child: Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.red.shade900.withOpacity(0.3) 
+                              color: themeProvider.isDarkMode
+                                  ? Colors.red.shade900.withOpacity(0.3)
                                   : Colors.red.shade50,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: themeProvider.isDarkMode 
-                                    ? Colors.red.shade800 
-                                    : Colors.red.shade200
-                              ),
+                                  color: themeProvider.isDarkMode
+                                      ? Colors.red.shade800
+                                      : Colors.red.shade200),
                             ),
                             child: Text(
                               _errorMessage,
                               style: TextStyle(
-                                color: themeProvider.isDarkMode 
-                                    ? Colors.red.shade300 
+                                color: themeProvider.isDarkMode
+                                    ? Colors.red.shade300
                                     : Colors.red.shade800,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 14,
@@ -774,10 +810,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         ),
                       const SizedBox(height: 24),
                       ElevatedButton(
-                        onPressed: _isLoading ? null : () {
-                          _login();
-                          Navigator.pop(context); // Close the bottom sheet
-                        },
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                _login();
+                                Navigator.pop(
+                                    context); // Close the bottom sheet
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           foregroundColor: Colors.white,
@@ -789,27 +828,26 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         ),
                         child: const Text(
                           'SIGN IN',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                       ),
                       const SizedBox(height: 28),
                       Row(
                         children: [
                           Expanded(
-                            child: Divider(
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade700 
-                                  : Colors.grey.shade300, 
-                              thickness: 1.5
-                            )
-                          ),
+                              child: Divider(
+                                  color: themeProvider.isDarkMode
+                                      ? Colors.grey.shade700
+                                      : Colors.grey.shade300,
+                                  thickness: 1.5)),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
                               'OR',
                               style: TextStyle(
-                                color: themeProvider.isDarkMode 
-                                    ? Colors.grey.shade400 
+                                color: themeProvider.isDarkMode
+                                    ? Colors.grey.shade400
                                     : Colors.grey.shade500,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 14,
@@ -817,13 +855,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                           ),
                           Expanded(
-                            child: Divider(
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade700 
-                                  : Colors.grey.shade300, 
-                              thickness: 1.5
-                            )
-                          ),
+                              child: Divider(
+                                  color: themeProvider.isDarkMode
+                                      ? Colors.grey.shade700
+                                      : Colors.grey.shade300,
+                                  thickness: 1.5)),
                         ],
                       ),
                       const SizedBox(height: 28),
@@ -843,8 +879,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           Text(
                             "Don't have an account?",
                             style: TextStyle(
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade400 
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey.shade400
                                   : Colors.grey.shade700,
                               fontWeight: FontWeight.w400,
                               fontSize: 15,
@@ -855,23 +891,33 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               Navigator.pop(context);
                               Navigator.of(context).push(
                                 PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) => const SignupScreen(),
-                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  pageBuilder: (context, animation,
+                                          secondaryAnimation) =>
+                                      const SignupScreen(),
+                                  transitionsBuilder: (context, animation,
+                                      secondaryAnimation, child) {
                                     const begin = Offset(1.0, 0.0);
                                     const end = Offset.zero;
                                     const curve = Curves.easeInOut;
-                                    var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                                    var offsetAnimation = animation.drive(tween);
-                                    return SlideTransition(position: offsetAnimation, child: child);
+                                    var tween = Tween(begin: begin, end: end)
+                                        .chain(CurveTween(curve: curve));
+                                    var offsetAnimation =
+                                        animation.drive(tween);
+                                    return SlideTransition(
+                                        position: offsetAnimation,
+                                        child: child);
                                   },
-                                  transitionDuration: const Duration(milliseconds: 500),
+                                  transitionDuration:
+                                      const Duration(milliseconds: 500),
                                 ),
                               );
                             },
                             style: TextButton.styleFrom(
                               foregroundColor: primaryColor,
-                              textStyle: const TextStyle(fontWeight: FontWeight.bold),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              textStyle:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
                               minimumSize: const Size(0, 36),
                             ),
                             child: const Text('Sign Up'),
@@ -890,4 +936,3 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
   }
 }
-

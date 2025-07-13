@@ -3,41 +3,42 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider extends ChangeNotifier {
   bool _isDarkMode = false;
-  
-  // Light theme colors
-  final Color _lightPrimaryColor = const Color(0xFFFFDD00); // yellow
-  final Color _lightBackgroundColor = Colors.white;
+
+  // Light theme colors - Yellow top bar, white background
+  final Color _lightPrimaryColor = const Color(0xFFFFC107); // Yellow
+  final Color _lightBackgroundColor = Colors.white; // White background
   final Color _lightSurfaceColor = Colors.white;
   final Color _lightCardColor = Colors.white;
-  
-  // Dark theme colors
-  final Color _darkPrimaryColor = const Color(0xFFFFDD00); // Light yellow
-  final Color _darkBackgroundColor = const Color(0xFF121212);
-  final Color _darkSurfaceColor = const Color(0xFF1E1E1E);
-  final Color _darkCardColor = const Color(0xFF252525);
-  
+
+  // Dark theme colors - Yellow top bar, dark background
+  final Color _darkPrimaryColor = const Color(0xFFFFC107); // Yellow
+  final Color _darkBackgroundColor =
+      const Color(0xFF181A20); // True dark background
+  final Color _darkSurfaceColor = const Color(0xFF23262B); // Dark card/surface
+  final Color _darkCardColor = const Color(0xFF23262B); // Dark card
+
   ThemeProvider() {
     _loadThemePreference();
   }
-  
+
   bool get isDarkMode => _isDarkMode;
-  
+
   // Light theme getters
   Color get lightPrimaryColor => _lightPrimaryColor;
   Color get lightBackgroundColor => _lightBackgroundColor;
   Color get lightSurfaceColor => _lightSurfaceColor;
   Color get lightCardColor => _lightCardColor;
-  
+
   // Dark theme getters
   Color get darkPrimaryColor => _darkPrimaryColor;
   Color get darkBackgroundColor => _darkBackgroundColor;
   Color get darkSurfaceColor => _darkSurfaceColor;
   Color get darkCardColor => _darkCardColor;
-  
+
   ThemeData getTheme() {
     return _isDarkMode ? _darkTheme() : _lightTheme();
   }
-  
+
   ThemeData _lightTheme() {
     return ThemeData(
       brightness: Brightness.light,
@@ -51,13 +52,13 @@ class ThemeProvider extends ChangeNotifier {
         background: _lightBackgroundColor,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: _lightCardColor,
-        foregroundColor: _lightPrimaryColor,
+        backgroundColor: _lightPrimaryColor,
+        foregroundColor: Colors.black,
         elevation: 0,
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: _lightCardColor,
-        selectedItemColor: _lightPrimaryColor,
+        selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey.shade600,
       ),
       textTheme: const TextTheme(
@@ -67,7 +68,7 @@ class ThemeProvider extends ChangeNotifier {
       dividerColor: Colors.grey.shade300,
     );
   }
-  
+
   ThemeData _darkTheme() {
     return ThemeData(
       brightness: Brightness.dark,
@@ -81,13 +82,13 @@ class ThemeProvider extends ChangeNotifier {
         background: _darkBackgroundColor,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: _darkCardColor,
-        foregroundColor: _darkPrimaryColor,
+        backgroundColor: _darkPrimaryColor,
+        foregroundColor: Colors.black,
         elevation: 0,
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: _darkCardColor,
-        selectedItemColor: _darkPrimaryColor,
+        selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey.shade400,
       ),
       textTheme: const TextTheme(
@@ -97,22 +98,21 @@ class ThemeProvider extends ChangeNotifier {
       dividerColor: Colors.grey.shade700,
     );
   }
-  
+
   void toggleTheme() {
     _isDarkMode = !_isDarkMode;
     _saveThemePreference();
     notifyListeners();
   }
-  
+
   Future<void> _loadThemePreference() async {
     final prefs = await SharedPreferences.getInstance();
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     notifyListeners();
   }
-  
+
   Future<void> _saveThemePreference() async {
     final prefs = await SharedPreferences.getInstance();
     prefs.setBool('isDarkMode', _isDarkMode);
   }
 }
-
