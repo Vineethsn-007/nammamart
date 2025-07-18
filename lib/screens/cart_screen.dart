@@ -18,10 +18,34 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   bool _isOrderSummaryExpanded = false;
+  List<GroceryItem>? _cachedCartItems;
+  bool _isLoadingCart = false;
+  String? _cartError;
 
   @override
   void initState() {
     super.initState();
+    _fetchCartItems();
+  }
+
+  Future<void> _fetchCartItems() async {
+    setState(() {
+      _isLoadingCart = true;
+      _cartError = null;
+    });
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    try {
+      final items = await cartProvider.fetchCartItems();
+      setState(() {
+        _cachedCartItems = items;
+        _isLoadingCart = false;
+      });
+    } catch (e) {
+      setState(() {
+        _cartError = 'Error loading cart items';
+        _isLoadingCart = false;
+      });
+    }
   }
 
   @override
@@ -59,7 +83,9 @@ class _CartScreenState extends State<CartScreen> {
               Container(
                 margin: const EdgeInsets.only(right: 8),
                 decoration: BoxDecoration(
-                  color: themeProvider.isDarkMode ? Colors.red.shade900.withOpacity(0.1) : Colors.red.shade50,
+                  color: themeProvider.isDarkMode
+                      ? Colors.red.shade900.withOpacity(0.1)
+                      : Colors.red.shade50,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: IconButton(
@@ -71,105 +97,81 @@ class _CartScreenState extends State<CartScreen> {
         ),
         body: cartProvider.cartItemIds.isEmpty
             ? _buildEmptyCart()
-            : FutureBuilder<List<GroceryItem>>(
-                future: cartProvider.fetchCartItems(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(primaryColor),
-                            strokeWidth: 3,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Loading your cart...',
-                            style: TextStyle(
-                              color: themeProvider.isDarkMode
-                                  ? Colors.grey.shade400
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: Colors.red.shade400,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Error loading cart items',
-                            style: TextStyle(
-                              color: Colors.red.shade600,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final cartItems = snapshot.data ?? [];
-                  if (cartItems.isEmpty) {
-                    return _buildEmptyCart();
-                  }
-
-                  final subtotal = cartProvider.calculateSubtotal(cartItems);
-                  final deliveryFee =
-                      cartProvider.calculateDeliveryFee(cartItems);
-                  final tax = cartProvider.calculateTax(cartItems);
-                  final total = cartProvider.calculateTotal(cartItems);
-
-                  return Column(
-                    children: [
-                      _buildDeliveryAddressCard(),
-                      Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
-                          itemCount: cartItems.length,
-                          itemBuilder: (context, index) {
-                            final item = cartItems[index];
-                            final quantity =
-                                cartProvider.itemQuantities[item.id] ?? 1;
-                            return _buildCartItem(item, quantity, cartProvider);
-                          },
+            : _isLoadingCart
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(primaryColor),
+                          strokeWidth: 3,
                         ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Loading your cart...',
+                          style: TextStyle(
+                            color: themeProvider.isDarkMode
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : _cartError != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: Colors.red.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _cartError!,
+                              style: TextStyle(
+                                color: Colors.red.shade600,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : (_cachedCartItems == null || _cachedCartItems!.isEmpty)
+                        ? _buildEmptyCart()
+                        : Column(
+                            children: [
+                              _buildDeliveryAddressCard(),
+                              Expanded(
+                                child: ListView.builder(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                                  itemCount: _cachedCartItems!.length,
+                                  itemBuilder: (context, index) {
+                                    final item = _cachedCartItems![index];
+                                    final quantity =
+                                        cartProvider.itemQuantities[item.id] ??
+                                            1;
+                                    return _buildCartItem(
+                                        item, quantity, cartProvider);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
         bottomSheet: cartProvider.cartItemIds.isNotEmpty
-            ? FutureBuilder<List<GroceryItem>>(
-                future: cartProvider.fetchCartItems(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                    final cartItems = snapshot.data!;
-                    final subtotal = cartProvider.calculateSubtotal(cartItems);
-                    final deliveryFee =
-                        cartProvider.calculateDeliveryFee(cartItems);
-                    final tax = cartProvider.calculateTax(cartItems);
-                    final total = cartProvider.calculateTotal(cartItems);
-
-                    return _buildCompactOrderSummary(
-                        subtotal, deliveryFee, tax, total);
-                  }
-                  return const SizedBox.shrink();
-                },
-              )
+            ? (_cachedCartItems != null && _cachedCartItems!.isNotEmpty)
+                ? _buildCompactOrderSummary(
+                    cartProvider.calculateSubtotal(_cachedCartItems!),
+                    cartProvider.calculateDeliveryFee(_cachedCartItems!),
+                    cartProvider.calculateTax(_cachedCartItems!),
+                    cartProvider.calculateTotal(_cachedCartItems!),
+                  )
+                : null
             : null,
       ),
     );
@@ -604,13 +606,16 @@ class _CartScreenState extends State<CartScreen> {
       ),
       onDismissed: (direction) {
         cartProvider.removeFromCart(item.id);
+        final shortName = item.name.length > 12
+            ? item.name.substring(0, 12) + '…'
+            : item.name;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
                 Icon(Icons.check_circle, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Text('${item.name} removed from cart'),
+                Text('$shortName removed from cart'),
               ],
             ),
             backgroundColor: primaryColor,
@@ -624,10 +629,12 @@ class _CartScreenState extends State<CartScreen> {
               onPressed: () {
                 cartProvider.addToCart(item.id);
                 cartProvider.updateQuantity(item.id, quantity);
+                _onCartChanged();
               },
             ),
           ),
         );
+        _onCartChanged();
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -807,8 +814,8 @@ class _CartScreenState extends State<CartScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               InkWell(
-                                onTap: () => cartProvider.updateQuantity(
-                                    item.id, quantity - 1),
+                                onTap: () => _updateQuantity(
+                                    item.id, quantity - 1, cartProvider),
                                 borderRadius: const BorderRadius.only(
                                   topLeft: Radius.circular(11),
                                   bottomLeft: Radius.circular(11),
@@ -834,8 +841,8 @@ class _CartScreenState extends State<CartScreen> {
                                 ),
                               ),
                               InkWell(
-                                onTap: () => cartProvider.updateQuantity(
-                                    item.id, quantity + 1),
+                                onTap: () => _updateQuantity(
+                                    item.id, quantity + 1, cartProvider),
                                 borderRadius: const BorderRadius.only(
                                   topRight: Radius.circular(11),
                                   bottomRight: Radius.circular(11),
@@ -1016,7 +1023,7 @@ class _CartScreenState extends State<CartScreen> {
                         : 'FREE',
                     valueColor: deliveryFee > 0 ? null : Colors.green.shade600,
                   ),
-                  _buildSummaryRow('Tax (5%)', '₹${tax.toStringAsFixed(2)}'),
+                  _buildSummaryRow('Tax ', '₹${tax.toStringAsFixed(2)}'),
                 ],
               ),
             ),
@@ -1395,5 +1402,17 @@ class _CartScreenState extends State<CartScreen> {
         ],
       ),
     );
+  }
+
+  // Call this after cart changes (add/remove/quantity update)
+  void _onCartChanged() {
+    _fetchCartItems();
+  }
+
+  // Also call _onCartChanged after quantity changes
+  void _updateQuantity(
+      String itemId, int newQuantity, CartProvider cartProvider) {
+    cartProvider.updateQuantity(itemId, newQuantity);
+    _onCartChanged();
   }
 }

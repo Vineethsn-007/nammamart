@@ -427,7 +427,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         var options = {
           'key': 'rzp_test_qix9HDGt0k0hgJ',
           'amount': (widget.total * 100).toInt(),
-          'name': 'NammaStore',
+          'name': 'NammaMart',
           'description': description,
           'prefill': {
             'contact': user.phoneNumber ?? '9876543210',

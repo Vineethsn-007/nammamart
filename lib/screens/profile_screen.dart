@@ -8,7 +8,6 @@ import 'dart:io';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
-import 'notifications_settings_screen.dart';
 import 'order_history_screen.dart';
 import 'help_support_screen.dart';
 import 'package:google_fonts/google_fonts.dart';

@@ -5,10 +5,11 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:namma_store/screens/admin_orders_screen.dart';
+import 'package:namma_mart/screens/admin_orders_screen.dart';
 import '../models/grocery_item.dart';
 import '../providers/theme_provider.dart';
 import 'package:provider/provider.dart';
+import '../providers/cart_provider.dart';
 
 class AdminProductScreen extends StatefulWidget {
   const AdminProductScreen({Key? key}) : super(key: key);
@@ -88,6 +89,14 @@ class _AdminProductScreenState extends State<AdminProductScreen>
   bool _isLoadingSettings = false;
   bool _isUpdatingSettings = false;
 
+  // Add these state variables for the toggle and threshold
+  bool _useCustomDeliveryFee = true;
+  final _deliveryThresholdController = TextEditingController();
+
+  // Add a description and GST field to the product form
+  final _descriptionController = TextEditingController();
+  final _gstController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -95,6 +104,8 @@ class _AdminProductScreenState extends State<AdminProductScreen>
     _loadCategories();
     _loadSettings();
     _loadProducts();
+    // Initialize threshold controller
+    _deliveryThresholdController.text = '500.0';
   }
 
   @override
@@ -113,6 +124,9 @@ class _AdminProductScreenState extends State<AdminProductScreen>
     _deliveryFeeController.dispose();
     _taxRateController.dispose();
     _tabController.dispose();
+    _deliveryThresholdController.dispose();
+    _descriptionController.dispose();
+    _gstController.dispose();
     super.dispose();
   }
 
@@ -541,9 +555,10 @@ class _AdminProductScreenState extends State<AdminProductScreen>
         'deliveryFee': _deliveryFeeController.text.trim().isNotEmpty
             ? double.parse(_deliveryFeeController.text.trim())
             : null,
-        'gst': _taxRateController.text.trim().isNotEmpty
-            ? double.parse(_taxRateController.text.trim())
+        'gst': _gstController.text.trim().isNotEmpty
+            ? double.parse(_gstController.text.trim())
             : null,
+        'description': _descriptionController.text.trim(),
       };
 
       if (_isEditing && _currentProductId != null) {
@@ -1476,37 +1491,28 @@ class _AdminProductScreenState extends State<AdminProductScreen>
                     // GST
                     Expanded(
                       child: TextFormField(
-                        controller: _taxRateController,
+                        controller: _gstController,
+                        keyboardType:
+                            TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
                           labelText: 'GST (%)',
-                          hintText: 'Enter GST for this product',
+                          hintText: 'Enter GST percentage',
                           prefixIcon: const Icon(Icons.percent),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: primaryColor,
-                              width: 2,
-                            ),
+                            borderSide: BorderSide(color: primaryColor),
                           ),
                         ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
                         validator: (value) {
-                          if (value != null && value.trim().isNotEmpty) {
-                            try {
-                              final gst = double.parse(value);
-                              if (gst < 0) {
-                                return 'GST cannot be negative';
-                              }
-                              if (gst > 100) {
-                                return 'GST cannot exceed 100%';
-                              }
-                            } catch (e) {
-                              return 'Enter valid number';
-                            }
+                          if (value == null || value.trim().isEmpty) {
+                            return 'GST is required';
+                          }
+                          final gst = double.tryParse(value);
+                          if (gst == null || gst <= 0) {
+                            return 'GST must be greater than 0';
                           }
                           return null;
                         },
@@ -1514,6 +1520,32 @@ class _AdminProductScreenState extends State<AdminProductScreen>
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+
+                // Description
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Enter product description',
+                    prefixIcon: const Icon(Icons.description),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: primaryColor, width: 2),
+                    ),
+                  ),
+                  maxLines: 2,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter a description';
+                    }
+                    return null;
+                  },
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
 
@@ -2637,49 +2669,51 @@ class _AdminProductScreenState extends State<AdminProductScreen>
   // Load settings from Firestore
   Future<void> _loadSettings() async {
     if (!mounted) return;
-
     setState(() {
       _isLoadingSettings = true;
     });
-
     try {
       final settingsDoc = await FirebaseFirestore.instance
           .collection('settings')
           .doc('app_settings')
           .get();
-
       if (settingsDoc.exists) {
         final data = settingsDoc.data();
         if (data != null) {
           setState(() {
-            _deliveryFee = (data['deliveryFee'] as num?)?.toDouble() ?? 40.0;
+            _deliveryFee =
+                (data['deliveryFeeBase'] as num?)?.toDouble() ?? 40.0;
             _taxRate = (data['taxRate'] as num?)?.toDouble() ?? 5.0;
-
+            _useCustomDeliveryFee = data['useCustomDeliveryFee'] ?? true;
+            _deliveryThresholdController.text =
+                ((data['deliveryFeeThreshold'] as num?)?.toDouble() ?? 500.0)
+                    .toString();
             _deliveryFeeController.text = _deliveryFee.toString();
             _taxRateController.text = _taxRate.toString();
           });
         }
       } else {
-        // Create default settings if they don't exist
         await FirebaseFirestore.instance
             .collection('settings')
             .doc('app_settings')
             .set({
-          'deliveryFee': _deliveryFee,
+          'deliveryFeeBase': _deliveryFee,
           'taxRate': _taxRate,
+          'useCustomDeliveryFee': _useCustomDeliveryFee,
+          'deliveryFeeThreshold':
+              double.tryParse(_deliveryThresholdController.text) ?? 500.0,
           'updatedAt': FieldValue.serverTimestamp(),
         });
-
         _deliveryFeeController.text = _deliveryFee.toString();
         _taxRateController.text = _taxRate.toString();
+        _deliveryThresholdController.text = '500.0';
       }
     } catch (e) {
       print('Error loading settings: $e');
       _showErrorSnackBar('Error loading settings: $e');
-
-      // Set default values in controllers
       _deliveryFeeController.text = _deliveryFee.toString();
       _taxRateController.text = _taxRate.toString();
+      _deliveryThresholdController.text = '500.0';
     } finally {
       if (mounted) {
         setState(() {
@@ -2694,29 +2728,35 @@ class _AdminProductScreenState extends State<AdminProductScreen>
     if (!_settingsFormKey.currentState!.validate()) {
       return;
     }
-
     setState(() {
       _isUpdatingSettings = true;
     });
-
     try {
       final deliveryFee = double.parse(_deliveryFeeController.text.trim());
       final taxRate = double.parse(_taxRateController.text.trim());
-
+      final deliveryThreshold =
+          double.parse(_deliveryThresholdController.text.trim());
       await FirebaseFirestore.instance
           .collection('settings')
           .doc('app_settings')
-          .update({
-        'deliveryFee': deliveryFee,
+          .set({
+        'deliveryFeeBase': deliveryFee,
         'taxRate': taxRate,
+        'useCustomDeliveryFee': _useCustomDeliveryFee,
+        'deliveryFeeThreshold': deliveryThreshold,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
-
+      }, SetOptions(merge: true));
       setState(() {
         _deliveryFee = deliveryFee;
         _taxRate = taxRate;
       });
-
+      // Notify CartProvider to reload settings
+      if (mounted) {
+        final cartProvider = Provider.of<CartProvider>(context, listen: false);
+        if (cartProvider is CartProvider && cartProvider.reloadSettings != null) {
+          cartProvider.reloadSettings();
+        }
+      }
       _showSuccessSnackBar('Settings updated successfully');
     } catch (e) {
       print('Error saving settings: $e');
@@ -2803,7 +2843,7 @@ class _AdminProductScreenState extends State<AdminProductScreen>
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Delivery Fee
+                      // Delivery Fee Settings with Toggle
                       const Text(
                         'Delivery Fee Settings',
                         style: TextStyle(
@@ -2812,11 +2852,39 @@ class _AdminProductScreenState extends State<AdminProductScreen>
                         ),
                       ),
                       const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Switch(
+                            value: _useCustomDeliveryFee,
+                            onChanged: (val) {
+                              setState(() {
+                                _useCustomDeliveryFee = val;
+                              });
+                            },
+                            activeColor: primaryColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _useCustomDeliveryFee
+                                  ? 'Use product delivery fees'
+                                  : 'Free delivery for all orders',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _deliveryFeeController,
+                        enabled: _useCustomDeliveryFee,
                         decoration: InputDecoration(
-                          labelText: 'Delivery Fee (₹) *',
-                          hintText: 'Enter delivery fee',
+                          labelText: 'Base Delivery Fee (₹)',
+                          hintText: 'Enter base delivery fee',
                           prefixIcon: const Icon(Icons.delivery_dining),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -2833,6 +2901,7 @@ class _AdminProductScreenState extends State<AdminProductScreen>
                           decimal: true,
                         ),
                         validator: (value) {
+                          if (!_useCustomDeliveryFee) return null;
                           if (value == null || value.trim().isEmpty) {
                             return 'Please enter delivery fee';
                           }
@@ -2847,12 +2916,50 @@ class _AdminProductScreenState extends State<AdminProductScreen>
                           return null;
                         },
                       ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _deliveryThresholdController,
+                        decoration: InputDecoration(
+                          labelText: 'Free Delivery Threshold (₹)',
+                          hintText:
+                              'Enter minimum order amount for free delivery',
+                          prefixIcon: const Icon(Icons.card_giftcard),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter a threshold amount';
+                          }
+                          try {
+                            final threshold = double.parse(value);
+                            if (threshold < 0) {
+                              return 'Threshold cannot be negative';
+                            }
+                          } catch (e) {
+                            return 'Please enter a valid number';
+                          }
+                          return null;
+                        },
+                      ),
                       const SizedBox(height: 8),
                       Text(
-                        'This is the base delivery fee charged to customers. Set to 0 for free delivery.',
+                        'Orders above this amount will qualify for free delivery',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
                       const SizedBox(height: 24),

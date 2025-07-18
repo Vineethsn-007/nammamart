@@ -1,19 +1,36 @@
 import 'package:flutter/widgets.dart';
+import 'package:hive/hive.dart';
 
+part 'grocery_item.g.dart';
+
+@HiveType(typeId: 0)
 class GroceryItem {
+  @HiveField(0)
   final String id;
+  @HiveField(1)
   final String name;
+  @HiveField(2)
   final double price;
+  @HiveField(3)
   final double originalPrice;
+  @HiveField(4)
   final double discountPercentage;
+  @HiveField(5)
   final String unit;
+  @HiveField(6)
   final String? imageUrl;
-  final IconData? icon; // Made optional since it's not stored in Firestore
+  // Icon is not stored in Hive
+  final IconData? icon;
+  @HiveField(7)
   final String categoryId;
+  @HiveField(8)
   final bool isPopular;
-  final bool isSpecialOffer; // Added special offer flag
-  final double? deliveryFee; // Add this
-  final double? gst; // Add this
+  @HiveField(9)
+  final bool isSpecialOffer;
+  @HiveField(10)
+  final double? deliveryFee;
+  @HiveField(11)
+  final double? gst;
 
   GroceryItem({
     required this.id,

@@ -10,11 +10,11 @@ class HelpSupportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    final backgroundColor = themeProvider.isDarkMode 
-        ? themeProvider.darkBackgroundColor 
+    final backgroundColor = themeProvider.isDarkMode
+        ? themeProvider.darkBackgroundColor
         : themeProvider.lightBackgroundColor;
 
     return Scaffold(
@@ -50,8 +50,8 @@ class HelpSupportScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: themeProvider.isDarkMode 
-                        ? Colors.black26 
+                    color: themeProvider.isDarkMode
+                        ? Colors.black26
                         : Colors.grey.shade200,
                     offset: const Offset(0, 2),
                     blurRadius: 6,
@@ -80,7 +80,9 @@ class HelpSupportScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+                          color: themeProvider.isDarkMode
+                              ? Colors.white
+                              : Colors.black87,
                         ),
                       ),
                     ],
@@ -89,7 +91,7 @@ class HelpSupportScreen extends StatelessWidget {
                   _buildContactItem(
                     icon: Icons.email,
                     title: 'Email',
-                    subtitle: 'support@nammastore.com',
+                    subtitle: 'support@nammamart.com',
                     onTap: () {
                       // Open email app
                     },
@@ -113,9 +115,9 @@ class HelpSupportScreen extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // FAQs section
             Container(
               padding: const EdgeInsets.all(16),
@@ -124,8 +126,8 @@ class HelpSupportScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: themeProvider.isDarkMode 
-                        ? Colors.black26 
+                    color: themeProvider.isDarkMode
+                        ? Colors.black26
                         : Colors.grey.shade200,
                     offset: const Offset(0, 2),
                     blurRadius: 6,
@@ -154,7 +156,9 @@ class HelpSupportScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+                          color: themeProvider.isDarkMode
+                              ? Colors.white
+                              : Colors.black87,
                         ),
                       ),
                     ],
@@ -162,26 +166,30 @@ class HelpSupportScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   _buildFaqItem(
                     question: 'How do I track my order?',
-                    answer: 'You can track your order by going to the "Order History" section in your profile and selecting the order you want to track.',
+                    answer:
+                        'You can track your order by going to the "Order History" section in your profile and selecting the order you want to track.',
                   ),
                   _buildFaqItem(
                     question: 'What is the delivery time?',
-                    answer: 'Delivery times vary based on your location. Typically, orders are delivered within 30 minutes to 2 hours after placing the order.',
+                    answer:
+                        'Delivery times vary based on your location. Typically, orders are delivered within 30 minutes to 2 hours after placing the order.',
                   ),
                   _buildFaqItem(
                     question: 'How do I cancel my order?',
-                    answer: 'You can cancel your order within 5 minutes of placing it by going to the "Order History" section and selecting the "Cancel Order" option.',
+                    answer:
+                        'You can cancel your order within 5 minutes of placing it by going to the "Order History" section and selecting the "Cancel Order" option.',
                   ),
                   _buildFaqItem(
                     question: 'What payment methods are accepted?',
-                    answer: 'We accept credit/debit cards, UPI, net banking, and cash on delivery.',
+                    answer:
+                        'We accept credit/debit cards, UPI, net banking, and cash on delivery.',
                   ),
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Feedback section
             Container(
               padding: const EdgeInsets.all(16),
@@ -190,8 +198,8 @@ class HelpSupportScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: themeProvider.isDarkMode 
-                        ? Colors.black26 
+                    color: themeProvider.isDarkMode
+                        ? Colors.black26
                         : Colors.grey.shade200,
                     offset: const Offset(0, 2),
                     blurRadius: 6,
@@ -220,7 +228,9 @@ class HelpSupportScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
+                          color: themeProvider.isDarkMode
+                              ? Colors.white
+                              : Colors.black87,
                         ),
                       ),
                     ],
@@ -311,4 +321,4 @@ class HelpSupportScreen extends StatelessWidget {
       ],
     );
   }
-}   
+}

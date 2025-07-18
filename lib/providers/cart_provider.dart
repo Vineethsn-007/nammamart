@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/grocery_item.dart';
+import 'package:hive/hive.dart';
 
 class CartProvider extends ChangeNotifier {
   final List<String> _cartItemIds = [];
@@ -15,6 +15,7 @@ class CartProvider extends ChangeNotifier {
   double _deliveryFeeThreshold = 500.0;
   double _taxRate = 5.0;
   bool _settingsLoaded = false;
+  bool _useCustomDeliveryFee = true;
 
   List<String> get cartItemIds => _cartItemIds;
   Map<String, int> get itemQuantities => _itemQuantities;
@@ -31,18 +32,34 @@ class CartProvider extends ChangeNotifier {
 
   Future<void> _loadSettings() async {
     try {
-      final settingsDoc = await settingsRef.doc('app_settings').get();
-
-      if (settingsDoc.exists) {
-        final data = settingsDoc.data();
-        if (data != null) {
-          _deliveryFeeBase =
-              (data['deliveryFeeBase'] as num?)?.toDouble() ?? 40.0;
-          _deliveryFeeThreshold =
-              (data['deliveryFeeThreshold'] as num?)?.toDouble() ?? 500.0;
-          _taxRate = (data['taxRate'] as num?)?.toDouble() ?? 5.0;
-          _settingsLoaded = true;
-          notifyListeners();
+      final settingsBox = Hive.box('settingsBox');
+      final cachedSettings = settingsBox.get('app_settings');
+      if (cachedSettings != null && cachedSettings is Map) {
+        _deliveryFeeBase =
+            (cachedSettings['deliveryFeeBase'] as num?)?.toDouble() ?? 40.0;
+        _deliveryFeeThreshold =
+            (cachedSettings['deliveryFeeThreshold'] as num?)?.toDouble() ??
+                500.0;
+        _taxRate = (cachedSettings['taxRate'] as num?)?.toDouble() ?? 5.0;
+        _useCustomDeliveryFee = cachedSettings['useCustomDeliveryFee'] ?? true;
+        _settingsLoaded = true;
+        notifyListeners();
+      } else {
+        final settingsDoc = await settingsRef.doc('app_settings').get();
+        if (settingsDoc.exists) {
+          final data = settingsDoc.data();
+          if (data != null) {
+            _deliveryFeeBase =
+                (data['deliveryFeeBase'] as num?)?.toDouble() ?? 40.0;
+            _deliveryFeeThreshold =
+                (data['deliveryFeeThreshold'] as num?)?.toDouble() ?? 500.0;
+            _taxRate = (data['taxRate'] as num?)?.toDouble() ?? 5.0;
+            _useCustomDeliveryFee = data['useCustomDeliveryFee'] ?? true;
+            _settingsLoaded = true;
+            // Cache settings in Hive
+            await settingsBox.put('app_settings', data);
+            notifyListeners();
+          }
         }
       }
     } catch (e) {
@@ -121,14 +138,25 @@ class CartProvider extends ChangeNotifier {
     if (_cartItemIds.isEmpty) return [];
 
     final List<GroceryItem> items = [];
+    final productsBox = Hive.box('productsBox');
+    List<String> idsToFetch = [];
+    // Try to get products from cache first
+    for (var id in _cartItemIds) {
+      final cached = productsBox.get(id);
+      if (cached != null && cached is GroceryItem) {
+        items.add(cached);
+      } else {
+        idsToFetch.add(id);
+      }
+    }
 
     // Fetch items in batches to avoid large queries
     const batchSize = 10;
-    for (var i = 0; i < _cartItemIds.length; i += batchSize) {
-      final end = (i + batchSize < _cartItemIds.length)
+    for (var i = 0; i < idsToFetch.length; i += batchSize) {
+      final end = (i + batchSize < idsToFetch.length)
           ? i + batchSize
-          : _cartItemIds.length;
-      final batch = _cartItemIds.sublist(i, end);
+          : idsToFetch.length;
+      final batch = idsToFetch.sublist(i, end);
 
       try {
         final querySnapshot =
@@ -136,23 +164,10 @@ class CartProvider extends ChangeNotifier {
 
         for (var doc in querySnapshot.docs) {
           final data = doc.data();
-          items.add(GroceryItem(
-            id: doc.id,
-            name: data['name'] ?? '',
-            price: (data['price'] as num?)?.toDouble() ?? 0.0,
-            originalPrice: (data['originalPrice'] as num?)?.toDouble() ?? 0.0,
-            discountPercentage:
-                (data['discountPercentage'] as num?)?.toDouble() ?? 0.0,
-            unit: data['unit'] ?? '',
-            imageUrl: data['imageUrl'] ?? '',
-            categoryId: data['categoryId'] ?? '',
-            isPopular: data['isPopular'] ?? false,
-            isSpecialOffer: data['isSpecialOffer'] ?? false,
-            icon: IconData(
-              data['iconCode'] ?? 0xe25e,
-              fontFamily: 'MaterialIcons',
-            ),
-          ));
+          final item = GroceryItem.fromFirestore(doc.id, data);
+          items.add(item);
+          // Cache in Hive
+          await productsBox.put(doc.id, item);
         }
       } catch (e) {
         print('Error fetching items batch: $e');
@@ -170,23 +185,19 @@ class CartProvider extends ChangeNotifier {
     return subtotal;
   }
 
+  // Delivery fee calculation: respects the toggle
+  // If useCustomDeliveryFee is false (free delivery ON), always return 0
+  // If true, use per-item deliveryFee or fallback
   double calculateDeliveryFee(List<GroceryItem> items) {
-    double totalDeliveryFee = 0;
-    for (var item in items) {
-      final quantity = _itemQuantities[item.id] ?? 1;
-      if (item.deliveryFee != null) {
-        totalDeliveryFee += item.deliveryFee! * quantity;
-      } else {
-        // Fallback to global logic
-        totalDeliveryFee += (calculateSubtotal([item]) >= _deliveryFeeThreshold
-                ? 0
-                : _deliveryFeeBase) *
-            quantity;
-      }
+    if (!_useCustomDeliveryFee) {
+      // Free delivery for all orders
+      return 0;
     }
-    return totalDeliveryFee;
+    // Only charge the base delivery fee once per order
+    return _deliveryFeeBase;
   }
 
+  // Tax calculation: always per product, no fallback
   double calculateTax(List<GroceryItem> items) {
     double totalTax = 0;
     for (var item in items) {
@@ -195,8 +206,8 @@ class CartProvider extends ChangeNotifier {
       if (item.gst != null) {
         totalTax += subtotal * (item.gst! / 100);
       } else {
-        // Fallback to global logic
-        totalTax += subtotal * (_taxRate / 100);
+        // No GST set, no tax
+        totalTax += 0;
       }
     }
     return totalTax;
@@ -207,5 +218,10 @@ class CartProvider extends ChangeNotifier {
     final deliveryFee = calculateDeliveryFee(items);
     final tax = calculateTax(items);
     return subtotal + deliveryFee + tax;
+  }
+
+  // Public method to reload settings from Firestore
+  void reloadSettings() {
+    _loadSettings();
   }
 }

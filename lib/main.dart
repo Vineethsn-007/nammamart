@@ -9,10 +9,18 @@ import 'providers/theme_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/address_provider.dart'; // Add this import
 import 'widgets/network_aware_widget.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'models/grocery_item.dart'; // Add this import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  // Initialize Hive
+  Hive.registerAdapter(GroceryItemAdapter());
+  await Hive.initFlutter();
+  await Hive.openBox('productsBox');
+  await Hive.openBox('settingsBox');
   runApp(const MyApp());
 }
 

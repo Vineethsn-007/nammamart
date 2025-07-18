@@ -46,7 +46,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '786487056540',
     projectId: 'nammastore123',
     authDomain: 'nammastore123.firebaseapp.com',
-    databaseURL: 'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'nammastore123.firebasestorage.app',
     measurementId: 'G-GH6BZM6CKD',
   );
@@ -56,7 +57,8 @@ class DefaultFirebaseOptions {
     appId: '1:786487056540:android:7109ff4cac39d3145bb559',
     messagingSenderId: '786487056540',
     projectId: 'nammastore123',
-    databaseURL: 'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'nammastore123.firebasestorage.app',
   );
 
@@ -65,9 +67,10 @@ class DefaultFirebaseOptions {
     appId: '1:786487056540:ios:05640a94692ebdcc5bb559',
     messagingSenderId: '786487056540',
     projectId: 'nammastore123',
-    databaseURL: 'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'nammastore123.firebasestorage.app',
-    iosBundleId: 'com.example.nammaStore',
+    iosBundleId: 'com.example.nammaMart',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -75,9 +78,10 @@ class DefaultFirebaseOptions {
     appId: '1:786487056540:ios:05640a94692ebdcc5bb559',
     messagingSenderId: '786487056540',
     projectId: 'nammastore123',
-    databaseURL: 'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'nammastore123.firebasestorage.app',
-    iosBundleId: 'com.example.nammaStore',
+    iosBundleId: 'com.example.nammaMart',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
@@ -86,7 +90,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '786487056540',
     projectId: 'nammastore123',
     authDomain: 'nammastore123.firebaseapp.com',
-    databaseURL: 'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL:
+        'https://nammastore123-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'nammastore123.firebasestorage.app',
     measurementId: 'G-YW0GTYKLMQ',
   );

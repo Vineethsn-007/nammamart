@@ -5,9 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:namma_store/providers/cart_provider.dart';
-import 'package:namma_store/screens/admin_orders_screen.dart';
+import 'package:namma_mart/providers/cart_provider.dart';
+import 'package:namma_mart/screens/admin_orders_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' show Selector;
 import '../models/grocery_item.dart';
 import '../providers/theme_provider.dart';
 import 'admin_product_screen.dart';
@@ -15,6 +16,7 @@ import 'categories_screen.dart';
 import 'profile_screen.dart';
 import 'cart_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
@@ -377,10 +379,13 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     try {
+      // Only match products whose name starts with the query (case-insensitive)
+      final lowerQuery = query.toLowerCase();
+      final upperBound = lowerQuery.substring(0, lowerQuery.length - 1) +
+          String.fromCharCode(lowerQuery.codeUnitAt(lowerQuery.length - 1) + 1);
       final querySnapshot = await productsRef
-          .where('nameSearch', isGreaterThanOrEqualTo: query.toLowerCase())
-          .where('nameSearch',
-              isLessThanOrEqualTo: query.toLowerCase() + '\uf8ff')
+          .where('nameSearch', isGreaterThanOrEqualTo: lowerQuery)
+          .where('nameSearch', isLessThan: upperBound)
           .get();
 
       if (!mounted) return;
@@ -534,6 +539,8 @@ class _HomeScreenState extends State<HomeScreen>
                   child: item.imageUrl != null && item.imageUrl!.isNotEmpty
                       ? CachedNetworkImage(
                           imageUrl: item.imageUrl!,
+                          cacheManager: DefaultCacheManager(),
+                          cacheKey: item.imageUrl,
                           height: 140,
                           width: 140,
                           fit: BoxFit.contain,
@@ -907,7 +914,7 @@ class _HomeScreenState extends State<HomeScreen>
           final offerColors = [
             isDark ? Color(0xFF6A1B9A) : Color(0xFF9C27B0), // Purple
             isDark ? Color(0xFF1565C0) : Color(0xFF2196F3), // Blue
-            isDark ? Color(0xFFF57C00) : Color(0xFFFF9800), // Orange
+            isDark ? Color(0xFFFF9800) : Color(0xFFFF9800), // Orange
             isDark ? Color(0xFFB71C1C) : Color(0xFFE53935), // Red
           ];
           final cardColor = offerColors[index % offerColors.length];
@@ -1243,6 +1250,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             style: const TextStyle(color: Colors.black87),
             onChanged: (value) {
+              // Debounce search to avoid excessive Firestore queries
               _searchDebounce?.cancel();
               if (value.isEmpty) {
                 setState(() {
@@ -1250,7 +1258,7 @@ class _HomeScreenState extends State<HomeScreen>
                   _isSearching = false;
                 });
               } else {
-                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                _searchDebounce = Timer(const Duration(milliseconds: 400), () {
                   _searchProducts(value);
                 });
               }
@@ -1453,51 +1461,53 @@ class _HomeScreenState extends State<HomeScreen>
     super.build(context);
 
     final user = FirebaseAuth.instance.currentUser;
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.select<ThemeProvider, bool>((tp) => tp.isDarkMode);
     final backgroundColor = isDark
-        ? themeProvider.darkBackgroundColor
-        : themeProvider.lightBackgroundColor;
+        ? context.select<ThemeProvider, Color>((tp) => tp.darkBackgroundColor)
+        : context.select<ThemeProvider, Color>((tp) => tp.lightBackgroundColor);
 
     return Container(
       color: backgroundColor,
       child: Scaffold(
         backgroundColor: backgroundColor,
         appBar: AppBar(
-          backgroundColor: isDark
-              ? themeProvider.darkCardColor
-              : themeProvider.lightPrimaryColor,
+          backgroundColor: context
+              .select<ThemeProvider, Color>((tp) => tp.lightPrimaryColor),
           elevation: 0,
           title: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                child: CachedNetworkImage(
-                  imageUrl:
-                      "https://media-hosting.imagekit.io/984786fd540f43be/NS-removebg-preview.png?Expires=1839859339&Key-Pair-Id=K2ZIVPTIP2VGHC&Signature=VuSd2Dq9OS7afoetTINCwpcbBrINsmo-K2mr4ktbHayY67Xo-RB6fhtpNJLldtGryaItxF0E5utC528jaEwiSx~58GRIuwrily7jRRZakhHiX8VJl9t8fzI1lVr7nvx6tzxNSx0pOGTNSgwfrWXgIEu40kSSEp8jFpI2Vby52Q~kMkjSDfb6X8IGSEF0lQv5qHfh2XJjEADO1~1pud1XDhZfgbjyPPL5nh~NwhiDKbbUl5x0lV04SADLkJEicEAd6OCFVCsvW3M3jscdp8WqxpVACLfrbfRlYLe-TEjjBnZkjiVhZRanC6aKVASJJdXhkMqDEn1WfFCRdmljmrbOmA__",
-                  fit: BoxFit.contain,
-                  placeholder: (context, url) =>
-                      const CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
-                  ),
-                  errorWidget: (context, url, error) => Icon(
-                    Icons.shopping_basket_rounded,
-                    color: isDark ? Colors.white : Colors.black,
-                    size: 28,
+              Center(
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CachedNetworkImage(
+                    imageUrl:
+                        "https://media-hosting.imagekit.io/984786fd540f43be/NS-removebg-preview.png?Expires=1839859339&Key-Pair-Id=K2ZIVPTIP2VGHC&Signature=VuSd2Dq9OS7afoetTINCwpcbBrINsmo-K2mr4ktbHayY67Xo-RB6fhtpNJLldtGryaItxF0E5utC528jaEwiSx~58GRIuwrily7jRRZakhHiX8VJl9t8fzI1lVr7nvx6tzxNSx0pOGTNSgwfrWXgIEu40kSSEp8jFpI2Vby52Q~kMkjSDfb6X8IGSEF0lQv5qHfh2XJjEADO1~1pud1XDhZfgbjyPPL5nh~NwhiDKbbUl5x0lV04SADLkJEicEAd6OCFVCsvW3M3jscdp8WqxpVACLfrbfRlYLe-TEjjBnZkjiVhZRanC6aKVASJJdXhkMqDEn1WfFCRdmljmrbOmA__",
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
+                    ),
+                    errorWidget: (context, url, error) => Icon(
+                      Icons.shopping_basket_rounded,
+                      color: Colors.black,
+                      size: 28,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                'NammaMart',
-                style: GoogleFonts.poppins(
-                  textStyle: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
-                    letterSpacing: 0.5,
+              Center(
+                child: Text(
+                  'NammaMart',
+                  style: GoogleFonts.roboto(
+                    textStyle: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
               ),
@@ -1572,13 +1582,16 @@ class _HomeScreenState extends State<HomeScreen>
                 decoration: BoxDecoration(
                   color: Colors.transparent,
                   border: Border.all(
-                      color: themeProvider.lightPrimaryColor, width: 3),
+                      color: context.select<ThemeProvider, Color>(
+                          (tp) => tp.lightPrimaryColor),
+                      width: 3),
                   borderRadius: BorderRadius.circular(33),
                 ),
                 child: Container(
                   decoration: BoxDecoration(
                     color: isDark
-                        ? themeProvider.darkBackgroundColor
+                        ? context.select<ThemeProvider, Color>(
+                            (tp) => tp.darkBackgroundColor)
                         : Colors.white,
                     borderRadius: BorderRadius.circular(30),
                   ),
@@ -1601,7 +1614,8 @@ class _HomeScreenState extends State<HomeScreen>
                         height: 32,
                         decoration: BoxDecoration(
                           color: isDark
-                              ? themeProvider.darkCardColor
+                              ? context.select<ThemeProvider, Color>(
+                                  (tp) => tp.darkCardColor)
                               : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1613,6 +1627,7 @@ class _HomeScreenState extends State<HomeScreen>
                     style: TextStyle(
                         color: isDark ? Colors.white : Colors.black87),
                     onChanged: (value) {
+                      // Debounce search to avoid excessive Firestore queries
                       _searchDebounce?.cancel();
                       if (value.isEmpty) {
                         setState(() {
@@ -1621,7 +1636,7 @@ class _HomeScreenState extends State<HomeScreen>
                         });
                       } else {
                         _searchDebounce =
-                            Timer(const Duration(milliseconds: 350), () {
+                            Timer(const Duration(milliseconds: 400), () {
                           _searchProducts(value);
                         });
                       }
@@ -1650,7 +1665,9 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
-            color: isDark ? themeProvider.darkCardColor : Colors.white,
+            color: isDark
+                ? context.select<ThemeProvider, Color>((tp) => tp.darkCardColor)
+                : Colors.white,
             boxShadow: [
               BoxShadow(
                 color: isDark ? Colors.black26 : Colors.grey.shade200,
@@ -1664,8 +1681,9 @@ class _HomeScreenState extends State<HomeScreen>
             selectedItemColor: isDark ? Colors.white : Colors.black,
             unselectedItemColor:
                 isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-            backgroundColor:
-                isDark ? themeProvider.darkCardColor : Colors.white,
+            backgroundColor: isDark
+                ? context.select<ThemeProvider, Color>((tp) => tp.darkCardColor)
+                : Colors.white,
             type: BottomNavigationBarType.fixed,
             elevation: 0,
             showSelectedLabels: true,
