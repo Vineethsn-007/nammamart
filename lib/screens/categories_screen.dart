@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/cart_provider.dart';
+import '../models/grocery_item.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({Key? key}) : super(key: key);
@@ -1150,6 +1152,10 @@ class ProductsScreen extends StatelessWidget {
                       (data['discountPercentage'] ?? 0).toDouble(),
                   'unit': data['unit'] ?? 'item',
                   'imageUrl': data['imageUrl'],
+                  'isPopular': data['isPopular'] ?? false,
+                  'isSpecialOffer': data['isSpecialOffer'] ?? false,
+                  'iconCode': data['iconCode'] ?? 0xe25e,
+                  'categoryId': data['categoryId'] ?? 'uncategorized',
                 };
               }).toList() ??
               [];
@@ -1222,6 +1228,25 @@ class ProductsScreen extends StatelessWidget {
         ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
 
+    // Create a GroceryItem from the product data
+    final item = GroceryItem(
+      id: product['id'] ?? '',
+      name: product['name'] ?? 'Unnamed Product',
+      price: (product['price'] ?? 0).toDouble(),
+      originalPrice:
+          (product['originalPrice'] ?? product['price'] ?? 0).toDouble(),
+      discountPercentage: (product['discountPercentage'] ?? 0).toDouble(),
+      unit: product['unit'] ?? 'item',
+      imageUrl: product['imageUrl'],
+      isPopular: product['isPopular'] ?? false,
+      isSpecialOffer: product['isSpecialOffer'] ?? false,
+      icon: IconData(
+        product['iconCode'] ?? 0xe25e,
+        fontFamily: 'MaterialIcons',
+      ),
+      categoryId: product['categoryId'] ?? 'uncategorized',
+    );
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
@@ -1240,49 +1265,186 @@ class ProductsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Product image
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: product['imageUrl'] != null
-                ? CachedNetworkImage(
-                    imageUrl: product['imageUrl'],
-                    height: 120,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      height: 120,
-                      color: themeProvider.isDarkMode
-                          ? Colors.grey.shade800
-                          : Colors.grey.shade100,
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      height: 120,
-                      color: themeProvider.isDarkMode
-                          ? Colors.grey.shade800
-                          : Colors.grey.shade100,
-                      child: Icon(
-                        Icons.image_not_supported,
+          // Product image with quantity selector
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(16)),
+                child: product['imageUrl'] != null
+                    ? CachedNetworkImage(
+                        imageUrl: product['imageUrl'],
+                        height: 120,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          height: 120,
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade100,
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          height: 120,
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade100,
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: themeProvider.isDarkMode
+                                ? Colors.grey.shade600
+                                : Colors.grey.shade400,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        height: 120,
                         color: themeProvider.isDarkMode
-                            ? Colors.grey.shade600
-                            : Colors.grey.shade400,
+                            ? Colors.grey.shade800
+                            : Colors.grey.shade100,
+                        child: Icon(
+                          Icons.image_not_supported,
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey.shade600
+                              : Colors.grey.shade400,
+                        ),
                       ),
-                    ),
-                  )
-                : Container(
-                    height: 120,
-                    color: themeProvider.isDarkMode
-                        ? Colors.grey.shade800
-                        : Colors.grey.shade100,
-                    child: Icon(
-                      Icons.image_not_supported,
-                      color: themeProvider.isDarkMode
-                          ? Colors.grey.shade600
-                          : Colors.grey.shade400,
-                    ),
-                  ),
+              ),
+              // Quantity selector positioned at top right
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Selector<CartProvider, Map<String, dynamic>>(
+                  selector: (context, cartProvider) => {
+                    'isInCart': cartProvider.cartItemIds.contains(item.id),
+                    'quantity': cartProvider.itemQuantities[item.id] ?? 0,
+                  },
+                  builder: (context, cartData, child) {
+                    final isInCart = cartData['isInCart'] as bool;
+                    final quantity = cartData['quantity'] as int;
+
+                    if (!isInCart) {
+                      // Show simple add button when not in cart
+                      return GestureDetector(
+                        onTap: () {
+                          final cartProvider =
+                              Provider.of<CartProvider>(context, listen: false);
+                          cartProvider.addToCart(item.id);
+                        },
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.grey.shade300),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.shade200,
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.add,
+                            size: 18,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      );
+                    } else {
+                      // Show quantity selector when in cart
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade300),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.shade200,
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Minus button
+                            GestureDetector(
+                              onTap: () {
+                                final cartProvider = Provider.of<CartProvider>(
+                                    context,
+                                    listen: false);
+                                if (quantity > 1) {
+                                  cartProvider.updateQuantity(
+                                      item.id, quantity - 1);
+                                } else {
+                                  cartProvider.removeFromCart(item.id);
+                                }
+                              },
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Icon(
+                                  Icons.remove,
+                                  size: 16,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ),
+                            // Quantity display
+                            Container(
+                              width: 32,
+                              height: 28,
+                              alignment: Alignment.center,
+                              child: Text(
+                                quantity.toString(),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ),
+                            // Plus button
+                            GestureDetector(
+                              onTap: () {
+                                final cartProvider = Provider.of<CartProvider>(
+                                    context,
+                                    listen: false);
+                                cartProvider.updateQuantity(
+                                    item.id, quantity + 1);
+                              },
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Icon(
+                                  Icons.add,
+                                  size: 16,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
 
           // Product details
@@ -1364,38 +1526,38 @@ class ProductsScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                  const SizedBox(height: 4),
+                  // Pack size indicator
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${product['unit']}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 12,
+                          color: Colors.blue.shade700,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ),
-
-          // Add to cart button
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.1),
-              borderRadius:
-                  const BorderRadius.vertical(bottom: Radius.circular(16)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.add_shopping_cart,
-                  size: 16,
-                  color: primaryColor,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Add to Cart',
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
             ),
           ),
         ],

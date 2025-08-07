@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../providers/theme_provider.dart';
 import '../providers/cart_provider.dart';
+import 'home_screen.dart';
 // ignore: unused_import
 import '../widgets/network_aware_widget.dart';
 import 'dart:async';
@@ -45,9 +46,12 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   Future<void> _checkConnectivityAndLoadOrders() async {
     try {
       // Try to make a simple request to check connectivity
-      await FirebaseFirestore.instance.collection('connectivity_check').limit(1).get()
+      await FirebaseFirestore.instance
+          .collection('connectivity_check')
+          .limit(1)
+          .get()
           .timeout(const Duration(seconds: 5));
-      
+
       if (!mounted) return;
       setState(() {
         _hasInternetConnection = true;
@@ -59,21 +63,22 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       setState(() {
         _hasInternetConnection = false;
         _isLoading = false;
-        _errorMessage = 'No internet connection. Please check your network settings and try again.';
+        _errorMessage =
+            'No internet connection. Please check your network settings and try again.';
       });
     }
   }
 
   Future<void> _loadOrders() async {
     if (!mounted) return;
-    
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     final currentUser = FirebaseAuth.instance.currentUser;
-    
+
     if (currentUser == null) {
       if (!mounted) return;
       setState(() {
@@ -84,7 +89,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
     try {
       print('Fetching orders for user: ${currentUser.uid}');
-      
+
       // IMPORTANT: Modified query to avoid the need for a composite index
       // Only using one orderBy clause instead of two
       final snapshot = await FirebaseFirestore.instance
@@ -94,12 +99,12 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           .get();
 
       print('Found ${snapshot.docs.length} orders for user ${currentUser.uid}');
-      
+
       // Debug: Print the first order if available
       if (snapshot.docs.isNotEmpty) {
         print('First order data: ${snapshot.docs.first.data()}');
       }
-      
+
       if (!mounted) return;
       setState(() {
         _orders = snapshot.docs;
@@ -107,24 +112,26 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       });
     } catch (e) {
       print('Error loading orders: $e');
-      
+
       String errorMsg = 'Failed to load orders. Please try again.';
-      
+
       if (e is FirebaseException) {
         print('Firebase error code: ${e.code}');
         if (e.code == 'permission-denied') {
           errorMsg = 'You don\'t have permission to access orders.';
         } else if (e.code == 'unavailable') {
-          errorMsg = 'Service is currently unavailable. Please check your internet connection.';
+          errorMsg =
+              'Service is currently unavailable. Please check your internet connection.';
         } else if (e.code == 'failed-precondition') {
           // This is the error we're seeing in the logs - need to create an index
-          errorMsg = 'The database is not properly configured. Please contact support.';
-          
+          errorMsg =
+              'The database is not properly configured. Please contact support.';
+
           // For development purposes, you can uncomment this to see the index creation URL
           // errorMsg = 'Index required. ${e.message}';
         }
       }
-      
+
       if (!mounted) return;
       setState(() {
         _errorMessage = errorMsg;
@@ -136,15 +143,15 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    final backgroundColor = themeProvider.isDarkMode 
-        ? themeProvider.darkBackgroundColor 
+    final backgroundColor = themeProvider.isDarkMode
+        ? themeProvider.darkBackgroundColor
         : themeProvider.lightBackgroundColor;
 
     final currentUser = FirebaseAuth.instance.currentUser;
-    
+
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
@@ -184,7 +191,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 : _isLoading
                     ? Center(
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(primaryColor),
                         ),
                       )
                     : _errorMessage != null
@@ -250,8 +258,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
   Widget _buildOrdersList(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
 
     // Debug print to verify we're reaching this method
@@ -266,21 +274,21 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         itemBuilder: (context, index) {
           final orderData = _orders[index].data() as Map<String, dynamic>;
           final orderId = _orders[index].id;
-          
+
           // Debug print to check order data
           print('Order $index data: $orderData');
-          
+
           final orderDate = orderData['createdAt'] as Timestamp?;
           final orderStatus = orderData['status'] as String? ?? 'Processing';
           final orderItems = orderData['items'] as List<dynamic>? ?? [];
           final orderTotal = orderData['total'] as num? ?? 0.0;
-          
-          final formattedDate = orderDate != null 
+
+          final formattedDate = orderDate != null
               ? DateFormat('MMM dd, yyyy').format(orderDate.toDate())
               : 'Unknown date';
-          
+
           final isDelivered = orderStatus == 'Delivered';
-          
+
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
@@ -288,8 +296,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: themeProvider.isDarkMode 
-                      ? Colors.black26 
+                  color: themeProvider.isDarkMode
+                      ? Colors.black26
                       : Colors.grey.shade200,
                   offset: const Offset(0, 2),
                   blurRadius: 6,
@@ -311,8 +319,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.white 
+                              color: themeProvider.isDarkMode
+                                  ? Colors.white
                                   : Colors.black87,
                             ),
                           ),
@@ -320,8 +328,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                           Text(
                             formattedDate,
                             style: TextStyle(
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade400 
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey.shade400
                                   : Colors.grey.shade600,
                               fontSize: 14,
                             ),
@@ -329,15 +337,18 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(orderStatus, themeProvider.isDarkMode),
+                          color: _getStatusColor(
+                              orderStatus, themeProvider.isDarkMode),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           orderStatus,
                           style: TextStyle(
-                            color: _getStatusTextColor(orderStatus, themeProvider.isDarkMode),
+                            color: _getStatusTextColor(
+                                orderStatus, themeProvider.isDarkMode),
                             fontWeight: FontWeight.w500,
                             fontSize: 12,
                           ),
@@ -355,8 +366,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                       Text(
                         '${orderItems.length} items',
                         style: TextStyle(
-                          color: themeProvider.isDarkMode 
-                              ? Colors.grey.shade400 
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey.shade400
                               : Colors.grey.shade600,
                         ),
                       ),
@@ -371,16 +382,18 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                     ],
                   ),
                 ),
-                if (orderData.containsKey('paymentId') && orderData['paymentId'] != null)
+                if (orderData.containsKey('paymentId') &&
+                    orderData['paymentId'] != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
                         Icon(
                           Icons.payment,
                           size: 16,
-                          color: themeProvider.isDarkMode 
-                              ? Colors.grey.shade400 
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey.shade400
                               : Colors.grey.shade600,
                         ),
                         const SizedBox(width: 8),
@@ -389,8 +402,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                             'Payment ID: ${(orderData['paymentId'] as String).substring(0, min((orderData['paymentId'] as String).length, 12))}...',
                             style: TextStyle(
                               fontSize: 12,
-                              color: themeProvider.isDarkMode 
-                                  ? Colors.grey.shade400 
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey.shade400
                                   : Colors.grey.shade600,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -409,16 +422,20 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         onPressed: () {
                           _showOrderDetails(context, orderData, orderId);
                         },
-                        icon: Icon(Icons.visibility, size: 18, color: primaryColor),
-                        label: Text('View Details', style: TextStyle(color: primaryColor)),
+                        icon: Icon(Icons.visibility,
+                            size: 18, color: primaryColor),
+                        label: Text('View Details',
+                            style: TextStyle(color: primaryColor)),
                       ),
                       if (isDelivered)
                         TextButton.icon(
                           onPressed: () {
                             _reorder(context, orderItems);
                           },
-                          icon: Icon(Icons.refresh, size: 18, color: primaryColor),
-                          label: Text('Reorder', style: TextStyle(color: primaryColor)),
+                          icon: Icon(Icons.refresh,
+                              size: 18, color: primaryColor),
+                          label: Text('Reorder',
+                              style: TextStyle(color: primaryColor)),
                         ),
                     ],
                   ),
@@ -433,7 +450,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
   Widget _buildErrorView(BuildContext context, Color primaryColor) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -449,9 +466,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: themeProvider.isDarkMode 
-                  ? Colors.white 
-                  : Colors.black87,
+              color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
             ),
           ),
           const SizedBox(height: 8),
@@ -461,8 +476,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
               _errorMessage ?? 'Please try again later',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: themeProvider.isDarkMode 
-                    ? Colors.grey.shade400 
+                color: themeProvider.isDarkMode
+                    ? Colors.grey.shade400
                     : Colors.grey.shade600,
               ),
             ),
@@ -491,13 +506,21 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   Color _getStatusColor(String status, bool isDarkMode) {
     switch (status) {
       case 'Delivered':
-        return isDarkMode ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade100;
+        return isDarkMode
+            ? Colors.green.shade900.withOpacity(0.3)
+            : Colors.green.shade100;
       case 'Processing':
-        return isDarkMode ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade100;
+        return isDarkMode
+            ? Colors.blue.shade900.withOpacity(0.3)
+            : Colors.blue.shade100;
       case 'Shipped':
-        return isDarkMode ? Colors.orange.shade900.withOpacity(0.3) : Colors.orange.shade100;
+        return isDarkMode
+            ? Colors.orange.shade900.withOpacity(0.3)
+            : Colors.orange.shade100;
       case 'Cancelled':
-        return isDarkMode ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade100;
+        return isDarkMode
+            ? Colors.red.shade900.withOpacity(0.3)
+            : Colors.red.shade100;
       default:
         return isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200;
     }
@@ -518,21 +541,24 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     }
   }
 
-  void _showOrderDetails(BuildContext context, Map<String, dynamic> orderData, String orderId) {
+  void _showOrderDetails(
+      BuildContext context, Map<String, dynamic> orderData, String orderId) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     final items = orderData['items'] as List<dynamic>? ?? [];
     final total = orderData['total'] as num? ?? 0.0;
-    final address = orderData['deliveryAddress'] as String? ?? 'No address provided';
-    final paymentMethod = orderData['paymentMethod'] as String? ?? 'Not specified';
+    final address =
+        orderData['deliveryAddress'] as String? ?? 'No address provided';
+    final paymentMethod =
+        orderData['paymentMethod'] as String? ?? 'Not specified';
     final paymentId = orderData['paymentId'] as String?;
     final subtotal = orderData['subtotal'] as num? ?? 0.0;
     final deliveryFee = orderData['deliveryFee'] as num? ?? 0.0;
     final tax = orderData['tax'] as num? ?? 0.0;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -547,13 +573,14 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              const Text('Items:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Items:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               ...items.map((item) {
                 final name = item['name'] as String? ?? 'Unknown item';
                 final quantity = item['quantity'] as int? ?? 1;
                 final price = item['price'] as num? ?? 0.0;
-                
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
@@ -571,7 +598,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Subtotal:', style: TextStyle(fontWeight: FontWeight.w500)),
+                  const Text('Subtotal:',
+                      style: TextStyle(fontWeight: FontWeight.w500)),
                   Text('₹${subtotal.toStringAsFixed(2)}'),
                 ],
               ),
@@ -579,15 +607,19 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Delivery Fee:', style: TextStyle(fontWeight: FontWeight.w500)),
-                  Text(deliveryFee > 0 ? '₹${deliveryFee.toStringAsFixed(2)}' : 'FREE'),
+                  const Text('Delivery Fee:',
+                      style: TextStyle(fontWeight: FontWeight.w500)),
+                  Text(deliveryFee > 0
+                      ? '₹${deliveryFee.toStringAsFixed(2)}'
+                      : 'FREE'),
                 ],
               ),
               const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Tax:', style: TextStyle(fontWeight: FontWeight.w500)),
+                  const Text('Tax:',
+                      style: TextStyle(fontWeight: FontWeight.w500)),
                   Text('₹${tax.toStringAsFixed(2)}'),
                 ],
               ),
@@ -596,24 +628,29 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Total:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Total:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   Text(
                     '₹${total.toStringAsFixed(2)}',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: primaryColor),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              const Text('Delivery Address:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Delivery Address:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text(address),
               const SizedBox(height: 16),
-              const Text('Payment Method:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Payment Method:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text(paymentMethod),
               if (paymentId != null) ...[
                 const SizedBox(height: 16),
-                const Text('Payment ID:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Payment ID:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text(paymentId),
               ],
@@ -634,22 +671,22 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   void _reorder(BuildContext context, List<dynamic> items) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
-    final primaryColor = themeProvider.isDarkMode 
-        ? themeProvider.darkPrimaryColor 
+    final primaryColor = themeProvider.isDarkMode
+        ? themeProvider.darkPrimaryColor
         : themeProvider.lightPrimaryColor;
-    
+
     cartProvider.clearCart();
-    
+
     for (var item in items) {
       final productId = item['id'] as String? ?? '';
       final quantity = item['quantity'] as int? ?? 1;
-      
+
       if (productId.isNotEmpty) {
         cartProvider.addToCart(productId);
         cartProvider.updateQuantity(productId, quantity);
       }
     }
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Items added to cart'),
@@ -658,7 +695,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
-    
+
     Navigator.popUntil(context, (route) => route.isFirst);
   }
 
@@ -696,7 +733,14 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.popUntil(context, (route) => route.isFirst);
+              // Navigate to home screen and clear the navigation stack
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const HomeScreen(),
+                ),
+                (route) => false,
+              );
             },
             icon: const Icon(Icons.shopping_cart),
             label: const Text('Start Shopping'),
@@ -764,7 +808,14 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           const SizedBox(height: 16),
           TextButton(
             onPressed: () {
-              Navigator.popUntil(context, (route) => route.isFirst);
+              // Navigate to home screen and clear the navigation stack
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const HomeScreen(),
+                ),
+                (route) => false,
+              );
             },
             child: Text(
               'Continue Shopping',
@@ -778,7 +829,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       ),
     );
   }
-  
+
   int min(int a, int b) {
     return a < b ? a : b;
   }

@@ -7,6 +7,7 @@ import '../providers/cart_provider.dart';
 import '../providers/address_provider.dart';
 import '../widgets/address_selection_dialog.dart';
 import 'checkout_screen.dart';
+import 'home_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class CartScreen extends StatefulWidget {
@@ -36,22 +37,25 @@ class _CartScreenState extends State<CartScreen> {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
     try {
       final items = await cartProvider.fetchCartItems();
-      setState(() {
-        _cachedCartItems = items;
-        _isLoadingCart = false;
-      });
+      if (mounted) {
+        setState(() {
+          _cachedCartItems = items;
+          _isLoadingCart = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _cartError = 'Error loading cart items';
-        _isLoadingCart = false;
-      });
+      if (mounted) {
+        setState(() {
+          _cartError = 'Error loading cart items';
+          _isLoadingCart = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final cartProvider = Provider.of<CartProvider>(context);
     final addressProvider = Provider.of<AddressProvider>(context);
 
     final primaryColor = themeProvider.isDarkMode
@@ -79,100 +83,124 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           actions: [
-            if (cartProvider.cartItemIds.isNotEmpty)
-              Container(
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: themeProvider.isDarkMode
-                      ? Colors.red.shade900.withOpacity(0.1)
-                      : Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: IconButton(
-                  icon: Icon(Icons.delete_outline, color: Colors.red.shade600),
-                  onPressed: () => _showClearCartDialog(),
-                ),
-              ),
+            Consumer<CartProvider>(
+              builder: (context, cartProvider, child) {
+                return cartProvider.cartItemIds.isNotEmpty
+                    ? Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: themeProvider.isDarkMode
+                              ? Colors.red.shade900.withOpacity(0.1)
+                              : Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.delete_outline,
+                              color: Colors.red.shade600),
+                          onPressed: () => _showClearCartDialog(),
+                        ),
+                      )
+                    : const SizedBox.shrink();
+              },
+            ),
           ],
         ),
-        body: cartProvider.cartItemIds.isEmpty
-            ? _buildEmptyCart()
-            : _isLoadingCart
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(primaryColor),
-                          strokeWidth: 3,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Loading your cart...',
-                          style: TextStyle(
-                            color: themeProvider.isDarkMode
-                                ? Colors.grey.shade400
-                                : Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : _cartError != null
+        body: Consumer<CartProvider>(
+          builder: (context, cartProvider, child) {
+            // Refresh cart items when cart changes
+            if (cartProvider.cartItemIds.length !=
+                (_cachedCartItems?.length ?? 0)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _fetchCartItems();
+              });
+            }
+
+            return cartProvider.cartItemIds.isEmpty
+                ? _buildEmptyCart()
+                : _isLoadingCart
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 64,
-                              color: Colors.red.shade400,
+                            CircularProgressIndicator(
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(primaryColor),
+                              strokeWidth: 3,
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              _cartError!,
+                              'Loading your cart...',
                               style: TextStyle(
-                                color: Colors.red.shade600,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
+                                color: themeProvider.isDarkMode
+                                    ? Colors.grey.shade400
+                                    : Colors.grey.shade600,
                               ),
                             ),
                           ],
                         ),
                       )
-                    : (_cachedCartItems == null || _cachedCartItems!.isEmpty)
-                        ? _buildEmptyCart()
-                        : Column(
-                            children: [
-                              _buildDeliveryAddressCard(),
-                              Expanded(
-                                child: ListView.builder(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(20, 0, 20, 120),
-                                  itemCount: _cachedCartItems!.length,
-                                  itemBuilder: (context, index) {
-                                    final item = _cachedCartItems![index];
-                                    final quantity =
-                                        cartProvider.itemQuantities[item.id] ??
-                                            1;
-                                    return _buildCartItem(
-                                        item, quantity, cartProvider);
-                                  },
+                    : _cartError != null
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 64,
+                                  color: Colors.red.shade400,
                                 ),
-                              ),
-                            ],
-                          ),
-        bottomSheet: cartProvider.cartItemIds.isNotEmpty
-            ? (_cachedCartItems != null && _cachedCartItems!.isNotEmpty)
-                ? _buildCompactOrderSummary(
-                    cartProvider.calculateSubtotal(_cachedCartItems!),
-                    cartProvider.calculateDeliveryFee(_cachedCartItems!),
-                    cartProvider.calculateTax(_cachedCartItems!),
-                    cartProvider.calculateTotal(_cachedCartItems!),
-                  )
-                : null
-            : null,
+                                const SizedBox(height: 16),
+                                Text(
+                                  _cartError!,
+                                  style: TextStyle(
+                                    color: Colors.red.shade600,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : (_cachedCartItems == null ||
+                                _cachedCartItems!.isEmpty)
+                            ? _buildEmptyCart()
+                            : Column(
+                                children: [
+                                  _buildDeliveryAddressCard(),
+                                  Expanded(
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          20, 0, 20, 120),
+                                      itemCount: _cachedCartItems!.length,
+                                      itemBuilder: (context, index) {
+                                        final item = _cachedCartItems![index];
+                                        final quantity = cartProvider
+                                                .itemQuantities[item.id] ??
+                                            1;
+                                        return _buildCartItem(
+                                            item, quantity, cartProvider);
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              );
+          },
+        ),
+        bottomSheet: Consumer<CartProvider>(
+          builder: (context, cartProvider, child) {
+            if (cartProvider.cartItemIds.isNotEmpty &&
+                _cachedCartItems != null &&
+                _cachedCartItems!.isNotEmpty) {
+              return _buildCompactOrderSummary(
+                cartProvider.calculateSubtotal(_cachedCartItems!),
+                cartProvider.calculateDeliveryFee(_cachedCartItems!),
+                cartProvider.calculateTax(_cachedCartItems!),
+                cartProvider.calculateTotal(_cachedCartItems!),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }
@@ -527,7 +555,14 @@ class _CartScreenState extends State<CartScreen> {
               ),
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.popUntil(context, (route) => route.isFirst);
+                  // Navigate to home screen and clear the navigation stack
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const HomeScreen(),
+                    ),
+                    (route) => false,
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,

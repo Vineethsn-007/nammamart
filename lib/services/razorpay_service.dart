@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
+import '../utils/constants.dart';
 
 class RazorpayService {
   late Razorpay _razorpay;
@@ -38,15 +39,15 @@ class RazorpayService {
       if (amount <= 0) {
         throw Exception("Invalid amount: Amount must be greater than 0");
       }
-      
+
       // Ensure required fields are not empty
       if (orderId.isEmpty || name.isEmpty || description.isEmpty) {
         throw Exception("Required fields cannot be empty");
       }
-      
-      // Simplified options for better compatibility
+
+      // Payment options with automatic capture enabled
       var options = {
-        'key': 'rzp_test_qix9HDGt0k0hgJ',
+        'key': ApiConstants.razorpayKey,
         'amount': (amount * 100).toInt(),
         'name': name,
         'description': description,
@@ -57,25 +58,31 @@ class RazorpayService {
         'theme': {
           'color': color,
         },
+        // Enable automatic capture to prevent refunds
+        'capture': true,
+        // Add order ID for tracking
+        'order_id': orderId,
+        // Set currency (default to INR)
+        'currency': currency ?? 'INR',
+        // Add notes for order tracking
+        'notes': {
+          'order_id': orderId,
+          'source': 'namma_mart_app',
+          ...?notes,
+        },
       };
-
-      // Add notes if provided
-      if (notes != null) {
-        options['notes'] = notes;
-      }
 
       // Open Razorpay checkout
       _razorpay.open(options);
     } catch (e) {
       debugPrint('Razorpay Error: ${e.toString()}');
-      
+
       // Create a failure response to pass to the error handler
       final failureResponse = PaymentFailureResponse(
-        9999, // Custom error code for initialization errors
-        "Failed to initialize payment: ${e.toString()}", 
-        {}
-      );
-      
+          9999, // Custom error code for initialization errors
+          "Failed to initialize payment: ${e.toString()}",
+          {});
+
       // Call the failure callback
       onFailure(failureResponse);
     }

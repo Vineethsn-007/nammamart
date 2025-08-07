@@ -9,6 +9,8 @@ import 'package:geocoding/geocoding.dart';
 import '../providers/theme_provider.dart';
 import '../providers/cart_provider.dart';
 import '../models/grocery_item.dart';
+import '../utils/constants.dart';
+import '../services/payment_verification_service.dart';
 import 'order_confirmation_screen.dart';
 import '../providers/address_provider.dart';
 import '../widgets/address_selection_dialog.dart';
@@ -220,87 +222,141 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    // Payment successful
-    setState(() {
-      _isProcessing = false;
-    });
-
-    // Create order in Firestore
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
-    final subtotal = cartProvider.calculateSubtotal(_cartItems);
-    final deliveryFee = cartProvider.calculateDeliveryFee(_cartItems);
-    final tax = cartProvider.calculateTax(_cartItems);
-
-    final user = _auth.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: User not authenticated'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // Fetch phone number from Firestore
-    String? phoneNumber;
     try {
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      phoneNumber = userDoc.data()?['phone'] as String?;
-    } catch (e) {
-      phoneNumber = null;
-    }
-
-    // Convert items to a format suitable for Firestore
-    final items = _cartItems.map((item) {
-      return {
-        'id': item.id,
-        'name': item.name,
-        'price': item.price,
-        'quantity': cartProvider.itemQuantities[item.id] ?? 1,
-        'imageUrl': item.imageUrl,
-      };
-    }).toList();
-
-    // Create order document
-    try {
-      final orderRef = await _firestore.collection('orders').add({
-        'userId': user.uid,
-        'phone': phoneNumber,
-        'items': items,
-        'subtotal': subtotal,
-        'deliveryFee': deliveryFee,
-        'tax': tax,
-        'total': widget.total,
-        'deliveryAddress': _deliveryAddress,
-        'paymentMethod': 'Razorpay',
-        'paymentId': response.paymentId,
-        'status': 'Processing',
-        'createdAt': FieldValue.serverTimestamp(),
+      setState(() {
+        _isProcessing = true;
       });
 
-      // Clear the cart
-      cartProvider.clearCart();
+      // Verify payment signature to ensure authenticity
+      final isValidSignature =
+          PaymentVerificationService.verifyPaymentSignature(
+        paymentId: response.paymentId!,
+        orderId: response.orderId ?? '',
+        signature: response.signature!,
+      );
 
-      // Navigate to order confirmation
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OrderConfirmationScreen(
-              paymentMethod: _selectedPaymentMethod,
-              total: widget.total,
-              paymentId: response.paymentId,
-              orderId: orderRef.id,
+      if (!isValidSignature) {
+        throw Exception('Payment signature verification failed');
+      }
+
+      // Verify payment capture status
+      final isCaptured = await PaymentVerificationService.verifyPaymentCapture(
+        response.paymentId!,
+      );
+
+      if (!isCaptured) {
+        // If not captured, attempt to capture manually
+        try {
+          await PaymentVerificationService.capturePayment(
+            paymentId: response.paymentId!,
+            amount: (widget.total * 100).toInt(),
+            currency: 'INR',
+          );
+        } catch (captureError) {
+          print('Error capturing payment: $captureError');
+          // Continue with order creation even if capture fails
+          // The payment might already be captured
+        }
+      }
+
+      setState(() {
+        _isProcessing = false;
+      });
+
+      // Create order in Firestore
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      final subtotal = cartProvider.calculateSubtotal(_cartItems);
+      final deliveryFee = cartProvider.calculateDeliveryFee(_cartItems);
+      final tax = cartProvider.calculateTax(_cartItems);
+
+      final user = _auth.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: User not authenticated'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Fetch phone number from Firestore
+      String? phoneNumber;
+      try {
+        final userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
+        phoneNumber = userDoc.data()?['phone'] as String?;
+      } catch (e) {
+        phoneNumber = null;
+      }
+
+      // Convert items to a format suitable for Firestore
+      final items = _cartItems.map((item) {
+        return {
+          'id': item.id,
+          'name': item.name,
+          'price': item.price,
+          'quantity': cartProvider.itemQuantities[item.id] ?? 1,
+          'imageUrl': item.imageUrl,
+        };
+      }).toList();
+
+      // Create order document with payment verification details
+      try {
+        final orderRef = await _firestore.collection('orders').add({
+          'userId': user.uid,
+          'phone': phoneNumber,
+          'items': items,
+          'subtotal': subtotal,
+          'deliveryFee': deliveryFee,
+          'tax': tax,
+          'total': widget.total,
+          'deliveryAddress': _deliveryAddress,
+          'paymentMethod': 'Razorpay',
+          'paymentId': response.paymentId,
+          'razorpayOrderId': response.orderId,
+          'paymentSignature': response.signature,
+          'paymentVerified': isValidSignature,
+          'paymentCaptured': isCaptured,
+          'status': 'Processing',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Clear the cart
+        cartProvider.clearCart();
+
+        // Navigate to order confirmation
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OrderConfirmationScreen(
+                paymentMethod: _selectedPaymentMethod,
+                total: widget.total,
+                paymentId: response.paymentId,
+                orderId: orderRef.id,
+              ),
             ),
+          );
+        }
+      } catch (e) {
+        print('Error creating order: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating order: $e'),
+            backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
-      print('Error creating order: $e');
+      setState(() {
+        _isProcessing = false;
+        _paymentError = 'Payment verification failed: ${e.toString()}';
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error creating order: $e'),
+          content: Text('Payment verification failed: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
@@ -425,9 +481,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         // Simplified options for better compatibility
         var options = {
-          'key': 'rzp_test_qix9HDGt0k0hgJ',
+          'key': ApiConstants.razorpayKey,
           'amount': (widget.total * 100).toInt(),
-          'name': 'NammaMart',
+          'name': AppConstants.appName,
           'description': description,
           'prefill': {
             'contact': user.phoneNumber ?? '9876543210',

@@ -15,16 +15,16 @@
       },
       "oauth_client": [
         {
-          "client_id": "786487056540-ut8qeolrl4sv61f75ij414o1cn6qp4ap.apps.googleusercontent.com",
-          "client_type": 3
-        },
-        {
-          "client_id": "786487056540-njl1n18knrf1eu63mnk3iedss5jephpv.apps.googleusercontent.com",
+          "client_id": "786487056540-ovliag6h2mv0e73v51edognn5f4inh44.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.codemangaluru.namma_store",
-            "certificate_hash": "591f3a8e9f2eb2a324e6316a5fd03301ede79c9b"
+            "certificate_hash": "88adc010fa1f869d5cfab12a0b523e7fdb684c14"
           }
+        },
+        {
+          "client_id": "786487056540-ut8qeolrl4sv61f75ij414o1cn6qp4ap.apps.googleusercontent.com",
+          "client_type": 3
         }
       ],
       "api_key": [
@@ -38,8 +38,14 @@
             {
               "client_id": "786487056540-ut8qeolrl4sv61f75ij414o1cn6qp4ap.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "786487056540-r5qggp5beim3nvu1gs6v8v8pjukfj3fh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.nammaStore"
+              }
             }
-          
           ]
         }
       }

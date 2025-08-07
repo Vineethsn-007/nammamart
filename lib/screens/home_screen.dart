@@ -15,6 +15,7 @@ import 'admin_product_screen.dart';
 import 'categories_screen.dart';
 import 'profile_screen.dart';
 import 'cart_screen.dart';
+import 'all_products_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -510,9 +511,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildProductCard(
       GroceryItem item, bool isDark, ThemeProvider themeProvider) {
-    final cartProvider = Provider.of<CartProvider>(context);
-    bool isInCart = cartProvider.cartItemIds.contains(item.id);
-
     return Container(
       width: 180,
       margin: const EdgeInsets.only(right: 12),
@@ -566,35 +564,133 @@ class _HomeScreenState extends State<HomeScreen>
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (isInCart) {
-                        cartProvider.removeFromCart(item.id);
+                  child: Selector<CartProvider, Map<String, dynamic>>(
+                    selector: (context, cartProvider) => {
+                      'isInCart': cartProvider.cartItemIds.contains(item.id),
+                      'quantity': cartProvider.itemQuantities[item.id] ?? 0,
+                    },
+                    builder: (context, cartData, child) {
+                      final isInCart = cartData['isInCart'] as bool;
+                      final quantity = cartData['quantity'] as int;
+
+                      if (!isInCart) {
+                        // Show simple add button when not in cart
+                        return GestureDetector(
+                          onTap: () {
+                            final cartProvider = Provider.of<CartProvider>(
+                                context,
+                                listen: false);
+                            cartProvider.addToCart(item.id);
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.grey.shade300),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.shade200,
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.add,
+                              size: 18,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        );
                       } else {
-                        cartProvider.addToCart(item.id);
+                        // Show quantity selector when in cart
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade300),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.shade200,
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Minus button
+                              GestureDetector(
+                                onTap: () {
+                                  final cartProvider =
+                                      Provider.of<CartProvider>(context,
+                                          listen: false);
+                                  if (quantity > 1) {
+                                    cartProvider.updateQuantity(
+                                        item.id, quantity - 1);
+                                  } else {
+                                    cartProvider.removeFromCart(item.id);
+                                  }
+                                },
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Icon(
+                                    Icons.remove,
+                                    size: 16,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ),
+                              // Quantity display
+                              Container(
+                                width: 32,
+                                height: 28,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  quantity.toString(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ),
+                              // Plus button
+                              GestureDetector(
+                                onTap: () {
+                                  final cartProvider =
+                                      Provider.of<CartProvider>(context,
+                                          listen: false);
+                                  cartProvider.updateQuantity(
+                                      item.id, quantity + 1);
+                                },
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Icon(
+                                    Icons.add,
+                                    size: 16,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
                       }
                     },
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.shade200,
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.add,
-                        size: 16,
-                        color: isInCart ? Colors.green : Colors.grey.shade600,
-                      ),
-                    ),
                   ),
                 ),
               ],
@@ -607,14 +703,6 @@ class _HomeScreenState extends State<HomeScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.unit,
-                  style: TextStyle(
-                    color: isDark ? Colors.grey.shade300 : Colors.grey.shade600,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 2),
                 const SizedBox(height: 6),
                 Text(
                   item.name,
@@ -669,6 +757,36 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                     ],
                   ],
+                ),
+                const SizedBox(height: 4),
+                // Pack size indicator
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${item.unit}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1025,7 +1143,16 @@ class _HomeScreenState extends State<HomeScreen>
             _buildSectionHeader(
               'All Products',
               Colors.orange,
-              () {},
+              () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AllProductsScreen(
+                      title: 'All Products',
+                    ),
+                  ),
+                );
+              },
               themeProvider,
             ),
 
@@ -1101,7 +1228,18 @@ class _HomeScreenState extends State<HomeScreen>
             _buildSectionHeader(
               'Special Offers',
               Colors.red,
-              () {},
+              () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AllProductsScreen(
+                      title: 'Special Offers',
+                      categoryFilter:
+                          null, // We'll filter for special offers in the screen
+                    ),
+                  ),
+                );
+              },
               themeProvider,
             ),
 
